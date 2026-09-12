@@ -1,5 +1,5 @@
 -- ============================================================
--- CONTROLE DO CHAVEIRO (MyKey) — MIGRACAO UNICA PARA A V4
+-- CONTROLE DO CHAVEIRO (MyKey) — MIGRACAO
 -- ============================================================
 -- Use este script para ATUALIZAR um banco que JA EXISTE.
 -- Para banco NOVO, use criar-banco.sql.
@@ -17,6 +17,9 @@
 --   PARTE 3 — corrige 'produtos' uuid residual (se houver)
 -- ============================================================
 
+-- inicializa transação para reversão automática em caso de erros
+begin;
+
 -- ============ PARTE 1 — atualizar tudo para a v4 ============
 -- ============================================================
 -- CONTROLE DO CHAVEIRO (MyKey) - ATUALIZACAO COMPLETA ATE A V4
@@ -33,10 +36,9 @@
 --   v4: tabela de categorias
 -- ============================================================
 
-
 -- ===== Conteudo de 07-atualizar-para-v2.sql =====
-alter table funcionarios add column if not exists permissoes text;
 
+alter table funcionarios add column if not exists permissoes text;
 
 -- ------------------------------------------------------------
 -- 2) Colunas de ENDERECO em clientes (versoes antigas nao tinham)
@@ -974,7 +976,7 @@ where not exists (select 1 from equivalencias);
 -- ------------------------------------------------------------
 -- 6) ESTOQUE FONTE UNICA
 --    Renomeia movimentacoes -> movimentacoes_estoque,
---    cria trigger que mantem chaves.estoque sempre correto.
+--    cria trigger que mantem produtos.estoque sempre correto.
 -- ------------------------------------------------------------
 do $$
 begin
@@ -992,7 +994,7 @@ end $$;
 
 create table if not exists movimentacoes_estoque (
   id bigint generated always as identity primary key,
-  chave_id bigint references chaves(id),
+  id_produto bigint references produtos(id),
   tipo text not null,
   quantidade integer not null,
   motivo text,
@@ -1013,19 +1015,36 @@ end $$;
 -- ------------------------------------------------------------
 -- 6.0) NORMALIZACAO: garante que movimentacoes_estoque tenha as
 --      colunas com os nomes corretos, qualquer que seja o estado
---      anterior do banco. Conserta variacoes de nome (chave->chave_id).
+--      anterior do banco. Conserta variacoes de nome (chave->id_produto).
 -- ------------------------------------------------------------
 do $$
 begin
-  if exists (select 1 from information_schema.tables
-             where table_schema='public' and table_name='movimentacoes_estoque') then
-    if exists (select 1 from information_schema.columns
-               where table_name='movimentacoes_estoque' and column_name='chave')
-       and not exists (select 1 from information_schema.columns
-               where table_name='movimentacoes_estoque' and column_name='chave_id') then
-      alter table movimentacoes_estoque rename column chave to chave_id;
+  if exists (
+    select 1 from information_schema.tables
+    where table_schema='public' and table_name='movimentacoes_estoque'
+    ) then
+
+    if exists (
+      select 1 from information_schema.columns
+      where table_name='movimentacoes_estoque' and column_name='chave'
+    ) and not exists (
+      select 1 from information_schema.columns
+      where table_name='movimentacoes_estoque' and column_name='id_produto'
+    ) then
+    alter table movimentacoes_estoque rename column chave to id_produto;
     end if;
-    alter table movimentacoes_estoque add column if not exists chave_id bigint;
+
+    if exists (
+      select 1 from information_schema.columns
+      where table_name='movimentacoes_estoque' and column_name='chave_id'
+    ) and not exists (
+      select 1 from information_schema.columns
+      where table_name='movimentacoes_estoque' and column_name='id_produto'
+    ) then
+    alter table movimentacoes_estoque rename column chave_id to id_produto;
+    end if;
+
+    alter table movimentacoes_estoque add column if not exists id_produto bigint;
     alter table movimentacoes_estoque add column if not exists tipo text;
     alter table movimentacoes_estoque add column if not exists quantidade integer;
     alter table movimentacoes_estoque add column if not exists motivo text;
@@ -1035,40 +1054,44 @@ begin
   end if;
 end $$;
 
--- Funcao que calcula o estoque real de uma chave
-create or replace function calcular_estoque_chave(p_chave_id bigint)
+-- Funcao que calcula o estoque real de um produto
+drop function if exists calcular_estoque_chave(bigint);
+drop function if exists calcular_estoque_produto(bigint);
+create or replace function calcular_estoque_produto(id_produto_buscado bigint)
 returns integer language sql stable as $$
   select coalesce(sum(case when tipo='entrada' then quantidade
                            when tipo='saida' then -quantidade else 0 end),0)::integer
-  from movimentacoes_estoque where chave_id = p_chave_id;
+  from movimentacoes_estoque where id_produto = id_produto_buscado;
 $$;
 
--- Trigger que recalcula chaves.estoque a cada movimentacao
-create or replace function trg_atualizar_estoque_chave()
+-- Trigger que recalcula produtos.estoque a cada movimentacao
+drop function if exists trg_recalcular_estoque() cascade;
+drop trigger if exists tg_mov_estoque on movimentacoes_estoque;
+drop function if exists trg_atualizar_estoque_chave();
+create or replace function trg_atualizar_estoque_produto()
 returns trigger language plpgsql as $$
-declare v_chave bigint;
+declare v_produto bigint;
 begin
-  v_chave := coalesce(new.chave_id, old.chave_id);
-  if v_chave is not null then
-    update chaves set estoque = calcular_estoque_chave(v_chave) where id = v_chave;
+  v_produto := coalesce(new.id_produto, old.id_produto);
+  if v_produto is not null then
+    update produtos set estoque = calcular_estoque_produto(v_produto) where id = v_produto;
   end if;
   return null;
 end $$;
 
-drop trigger if exists tg_mov_estoque on movimentacoes_estoque;
 create trigger tg_mov_estoque
   after insert or update or delete on movimentacoes_estoque
-  for each row execute function trg_atualizar_estoque_chave();
+  for each row execute function trg_atualizar_estoque_produto();
 
--- Reconciliacao: chaves com saldo mas sem historico ganham entrada inicial
-insert into movimentacoes_estoque (chave_id, tipo, quantidade, motivo, criado_em)
+-- Reconciliacao: produtos com saldo mas sem historico ganham entrada inicial
+insert into movimentacoes_estoque (id_produto, tipo, quantidade, motivo, criado_em)
 select k.id, 'entrada', k.estoque, 'Saldo inicial (migracao fonte unica)', now()
-from chaves k
+from produtos k
 where coalesce(k.estoque,0) > 0
-  and not exists (select 1 from movimentacoes_estoque m where m.chave_id = k.id);
+  and not exists (select 1 from movimentacoes_estoque m where m.id_produto = k.id);
 
--- Recalcula todas as chaves a partir do historico
-update chaves k set estoque = calcular_estoque_chave(k.id);
+-- Recalcula produtos a partir do historico
+update produtos k set estoque = calcular_estoque_produto(k.id);
 
 
 -- ------------------------------------------------------------
@@ -1126,6 +1149,7 @@ create table if not exists produtos (
   estoque integer not null default 0,
   estoque_min integer not null default 0,
   ativo boolean not null default true,
+  locacao text,
   criado_em timestamptz not null default now()
 );
 
@@ -1137,35 +1161,9 @@ create table if not exists produtos (
 alter table produtos add column if not exists tipo_produto text not null default 'chave';
 -- unidade de medida do produto (un/g/kg/m/l/cx/pct/sv) — usada no cupom e na OS
 alter table produtos add column if not exists unidade_medida text not null default 'un';
--- IMPORTANTE: a view 'chaves' e 'select * from produtos', mas o '*' e expandido
--- na criacao da view. Apos adicionar colunas em produtos, e preciso recriar a view
--- para que a coluna nova (unidade_medida) apareça e seja gravável.
-create or replace view chaves as select * from produtos;
-
 
 -- ------------------------------------------------------------
--- 3) VIEW de compatibilidade: o nome 'chaves' continua valendo
---    (a view e atualizavel: aceita insert/update/delete)
---    IMPORTANTE: recria SEMPRE, para a view refletir colunas novas
---    (ex: tipo_produto). Uma view 'select *' congela as colunas de
---    quando foi criada; sem recriar, a coluna nova nao aparece nela.
--- ------------------------------------------------------------
-do $$
-begin
-  -- so recria se 'chaves' for VIEW (nunca derruba uma tabela chamada chaves)
-  if exists (select 1 from information_schema.views
-             where table_schema='public' and table_name='chaves') then
-    execute 'drop view chaves';
-  end if;
-  if not exists (select 1 from information_schema.tables
-                 where table_schema='public' and table_name='chaves') then
-    execute 'create view chaves as select * from produtos';
-  end if;
-end $$;
-
-
--- ------------------------------------------------------------
--- 4) Seguranca (RLS) na tabela produtos
+-- 3) Seguranca (RLS) na tabela produtos
 -- ------------------------------------------------------------
 alter table produtos enable row level security;
 drop policy if exists "acesso_total" on produtos;
@@ -1173,7 +1171,7 @@ create policy "acesso_total" on produtos for all using (true) with check (true);
 
 
 -- ------------------------------------------------------------
--- 5) RESSINCRONIZA as sequencias de ID (identity)
+-- 4) RESSINCRONIZA as sequencias de ID (identity)
 --    Backups que inserem IDs fixos deixam a sequencia atrasada,
 --    o que causa erro "duplicate key" ao cadastrar algo novo.
 --    Este bloco acerta a sequencia de cada tabela com o maior id.
@@ -1203,7 +1201,7 @@ end $$;
 
 
 -- ------------------------------------------------------------
--- 6) Versao do schema = 3
+-- 5) Versao do schema = 3
 -- ------------------------------------------------------------
 insert into configuracoes (chave, valor) values ('schema_version', '3')
 on conflict (chave) do update set valor = excluded.valor;
@@ -1211,7 +1209,6 @@ on conflict (chave) do update set valor = excluded.valor;
 
 -- ============================================================
 -- PRONTO! "Produtos" com tipos chave/fechadura/peca/servico.
--- O nome antigo 'chaves' continua funcionando via view.
 -- ============================================================
 
 -- Recarrega o cache de esquema do PostgREST (Supabase) para que
@@ -1233,7 +1230,7 @@ create unique index if not exists idx_categorias_nome_unico
 
 
 -- ------------------------------------------------------------
--- 2) Seguranca (RLS)
+-- 1) Seguranca (RLS)
 -- ------------------------------------------------------------
 alter table categorias enable row level security;
 drop policy if exists "acesso_total" on categorias;
@@ -1241,7 +1238,7 @@ create policy "acesso_total" on categorias for all using (true) with check (true
 
 
 -- ------------------------------------------------------------
--- 3) Ressincroniza sequencias (seguranca, caso backup antigo)
+-- 2) Ressincroniza sequencias (seguranca, caso backup antigo)
 -- ------------------------------------------------------------
 do $$
 declare r record; v_max bigint; v_seq text;
@@ -1262,7 +1259,7 @@ end $$;
 
 
 -- ------------------------------------------------------------
--- 4) Versao do schema = 4
+-- 3) Versao do schema = 4
 -- ------------------------------------------------------------
 insert into configuracoes (chave, valor) values ('schema_version', '4')
 on conflict (chave) do update set valor = excluded.valor;
@@ -1283,8 +1280,7 @@ notify pgrst, 'reload schema';
 -- ============================================================
 -- Em alguns bancos a migracao deixou DUAS tabelas: 'chaves' (antiga,
 -- com os dados) e 'produtos' (nova, vazia). Este script move os
--- dados para 'produtos', remove a 'chaves' antiga e cria a view
--- 'chaves' apontando para 'produtos'. NAO PERDE DADOS.
+-- dados para 'produtos', remove a tabela 'chaves'. NAO PERDE DADOS.
 --
 -- So faz algo se AMBAS forem tabelas. Se ja estiver consolidado
 -- (chaves = view), nao faz nada. Idempotente.
@@ -1328,18 +1324,6 @@ begin
                    greatest((select coalesce(max(id),0) from produtos),1),
                    (select count(*) from produtos) > 0);
 
-    -- cria a view de compatibilidade
-    execute 'create view chaves as select * from produtos';
-  end if;
-end $$;
-
--- Recria a view se 'chaves' for view mas estiver sem colunas novas
-do $$
-begin
-  if exists (select 1 from information_schema.views
-             where table_schema='public' and table_name='chaves') then
-    execute 'drop view chaves';
-    execute 'create view chaves as select * from produtos';
   end if;
 end $$;
 
@@ -1360,8 +1344,8 @@ notify pgrst, 'reload schema';
 --   - A tabela 'chaves' (bigint) e a correta e atual (tem os dados).
 --   - A 'produtos' (uuid) e de outra versao; sai do caminho SEM
 --     ser apagada (renomeada para produtos_legado_uuid p/ seguranca).
---   - Adiciona 'tipo_produto' na 'chaves'.
---   - Renomeia 'chaves' -> 'produtos' e cria view 'chaves'.
+--   - Adiciona 'tipo_produto'.
+--   - Renomeia 'chaves' -> 'produtos'
 -- NAO APAGA DADOS. Idempotente.
 -- ============================================================
 do $$
@@ -1389,12 +1373,10 @@ begin
     execute 'alter table chaves add column if not exists tipo_produto text not null default ''chave''';
     -- renomeia chaves -> produtos (agora o nome esta livre)
     execute 'alter table chaves rename to produtos';
-    -- cria a view de compatibilidade
-    execute 'create view chaves as select * from produtos';
   end if;
 end $$;
 
--- Se chaves ainda for tabela (caso ja tivesse so a boa), garante coluna + rename + view
+-- Se chaves ainda for tabela (caso ja tivesse so a boa), garante coluna + rename
 do $$
 declare v_chaves_tabela boolean; v_produtos_existe boolean;
 begin
@@ -1405,19 +1387,15 @@ begin
   if v_chaves_tabela and not v_produtos_existe then
     execute 'alter table chaves add column if not exists tipo_produto text not null default ''chave''';
     execute 'alter table chaves rename to produtos';
-    execute 'create view chaves as select * from produtos';
   end if;
 end $$;
 
--- Garante tipo_produto na produtos final e recria a view (reflete colunas novas)
+-- Garante tipo_produto na produtos final (reflete colunas novas)
 alter table produtos add column if not exists tipo_produto text not null default 'chave';
 do $$
 begin
   if exists (select 1 from information_schema.views where table_schema='public' and table_name='chaves') then
     execute 'drop view chaves';
-  end if;
-  if not exists (select 1 from information_schema.tables where table_schema='public' and table_name='chaves') then
-    execute 'create view chaves as select * from produtos';
   end if;
 end $$;
 
@@ -1618,14 +1596,14 @@ begin
     case when p_status_pagamento = 'pago' then now() else null end
   ) returning id into v_os_id;
 
-  -- 2. baixa de estoque: uma movimentacao de saida por item COM chave_id.
+  -- 2. baixa de estoque: uma movimentacao de saida por item COM id_produto.
   for v_item in select * from jsonb_array_elements(coalesce(p_itens, '[]'::jsonb))
   loop
-    if (v_item->>'chave_id') is not null then
+    if (v_item->>'id_produto') is not null then
       insert into movimentacoes_estoque (
-        chave_id, tipo, quantidade, motivo, servico_id, funcionario_id
+        id_produto, tipo, quantidade, motivo, servico_id, funcionario_id
       ) values (
-        (v_item->>'chave_id')::bigint, 'saida',
+        (v_item->>'id_produto')::bigint, 'saida',
         (v_item->>'quantidade')::integer,
         'Venda Rápida OS #' || v_os_id, v_os_id, p_funcionario_id
       );
@@ -1697,11 +1675,11 @@ begin
     if not v_ja_baixou then
       for v_item in select * from jsonb_array_elements(coalesce(v_itens, '[]'::jsonb))
       loop
-        if (v_item->>'chave_id') is not null then
+        if (v_item->>'id_produto') is not null then
           insert into movimentacoes_estoque (
-            chave_id, tipo, quantidade, motivo, servico_id, funcionario_id
+            id_produto, tipo, quantidade, motivo, servico_id, funcionario_id
           ) values (
-            (v_item->>'chave_id')::bigint, 'saida',
+            (v_item->>'id_produto')::bigint, 'saida',
             (v_item->>'quantidade')::integer,
             'OS #' || p_os_id, p_os_id, p_funcionario_id
           );
@@ -1790,11 +1768,11 @@ begin
   if v_status = 'concluido' and not coalesce(p_ja_concluida, false) then
     for v_item in select * from jsonb_array_elements(coalesce(p_itens, '[]'::jsonb))
     loop
-      if (v_item->>'chave_id') is not null then
+      if (v_item->>'id_produto') is not null then
         insert into movimentacoes_estoque (
-          chave_id, tipo, quantidade, motivo, servico_id, funcionario_id
+          id_produto, tipo, quantidade, motivo, servico_id, funcionario_id
         ) values (
-          (v_item->>'chave_id')::bigint, 'saida',
+          (v_item->>'id_produto')::bigint, 'saida',
           (v_item->>'quantidade')::integer,
           'OS #' || v_os_id, v_os_id, p_funcionario_id
         );
@@ -1806,12 +1784,12 @@ begin
   -- estorna estoque se a OS concluida foi CANCELADA (devolve as pecas).
   if v_status = 'cancelado' and coalesce(p_ja_concluida, false) then
     insert into movimentacoes_estoque (
-      chave_id, tipo, quantidade, motivo, servico_id, funcionario_id
+      id_produto, tipo, quantidade, motivo, servico_id, funcionario_id
     )
-    select m.chave_id, 'entrada', m.quantidade,
+    select m.id_produto, 'entrada', m.quantidade,
            'Estorno OS #' || v_os_id || ' (cancelada)', v_os_id, p_funcionario_id
       from movimentacoes_estoque m
-     where m.servico_id = v_os_id and m.tipo = 'saida' and m.chave_id is not null;
+     where m.servico_id = v_os_id and m.tipo = 'saida' and m.id_produto is not null;
   end if;
 
   -- lancamento financeiro pela diferenca de pagamento.
@@ -2062,11 +2040,11 @@ begin
   if v_status = 'concluido' and not coalesce(p_ja_concluida, false) then
     for v_item in select * from jsonb_array_elements(coalesce(p_itens, '[]'::jsonb))
     loop
-      if (v_item->>'chave_id') is not null then
+      if (v_item->>'id_produto') is not null then
         insert into movimentacoes_estoque (
-          chave_id, tipo, quantidade, motivo, servico_id, funcionario_id
+          id_produto, tipo, quantidade, motivo, servico_id, funcionario_id
         ) values (
-          (v_item->>'chave_id')::bigint, 'saida',
+          (v_item->>'id_produto')::bigint, 'saida',
           (v_item->>'quantidade')::integer,
           'OS #' || v_os_id, v_os_id, p_funcionario_id
         );
@@ -2078,12 +2056,12 @@ begin
   -- estorna estoque se a OS concluida foi CANCELADA (devolve as pecas).
   if v_status = 'cancelado' and coalesce(p_ja_concluida, false) then
     insert into movimentacoes_estoque (
-      chave_id, tipo, quantidade, motivo, servico_id, funcionario_id
+      id_produto, tipo, quantidade, motivo, servico_id, funcionario_id
     )
-    select m.chave_id, 'entrada', m.quantidade,
+    select m.id_produto, 'entrada', m.quantidade,
            'Estorno OS #' || v_os_id || ' (cancelada)', v_os_id, p_funcionario_id
       from movimentacoes_estoque m
-     where m.servico_id = v_os_id and m.tipo = 'saida' and m.chave_id is not null;
+     where m.servico_id = v_os_id and m.tipo = 'saida' and m.id_produto is not null;
   end if;
 
   -- lancamento financeiro pela diferenca de pagamento.
@@ -2202,11 +2180,11 @@ begin
 
   for v_item in select * from jsonb_array_elements(coalesce(p_itens, '[]'::jsonb))
   loop
-    if (v_item->>'chave_id') is not null then
+    if (v_item->>'id_produto') is not null then
       insert into movimentacoes_estoque (
-        chave_id, tipo, quantidade, motivo, servico_id, funcionario_id
+        id_produto, tipo, quantidade, motivo, servico_id, funcionario_id
       ) values (
-        (v_item->>'chave_id')::bigint, 'saida',
+        (v_item->>'id_produto')::bigint, 'saida',
         (v_item->>'quantidade')::integer,
         'Venda Rápida OS #' || v_os_id, v_os_id, p_funcionario_id
       );
@@ -2273,11 +2251,11 @@ begin
     if not v_ja_baixou then
       for v_item in select * from jsonb_array_elements(coalesce(v_itens, '[]'::jsonb))
       loop
-        if (v_item->>'chave_id') is not null then
+        if (v_item->>'id_produto') is not null then
           insert into movimentacoes_estoque (
-            chave_id, tipo, quantidade, motivo, servico_id, funcionario_id
+            id_produto, tipo, quantidade, motivo, servico_id, funcionario_id
           ) values (
-            (v_item->>'chave_id')::bigint, 'saida',
+            (v_item->>'id_produto')::bigint, 'saida',
             (v_item->>'quantidade')::integer,
             'OS #' || p_os_id, p_os_id, p_funcionario_id
           );
@@ -2362,11 +2340,11 @@ begin
   if v_status = 'concluido' and not coalesce(p_ja_concluida, false) then
     for v_item in select * from jsonb_array_elements(coalesce(p_itens, '[]'::jsonb))
     loop
-      if (v_item->>'chave_id') is not null then
+      if (v_item->>'id_produto') is not null then
         insert into movimentacoes_estoque (
-          chave_id, tipo, quantidade, motivo, servico_id, funcionario_id
+          id_produto, tipo, quantidade, motivo, servico_id, funcionario_id
         ) values (
-          (v_item->>'chave_id')::bigint, 'saida',
+          (v_item->>'id_produto')::bigint, 'saida',
           (v_item->>'quantidade')::integer,
           'OS #' || v_os_id, v_os_id, p_funcionario_id
         );
@@ -2377,12 +2355,12 @@ begin
 
   if v_status = 'cancelado' and coalesce(p_ja_concluida, false) then
     insert into movimentacoes_estoque (
-      chave_id, tipo, quantidade, motivo, servico_id, funcionario_id
+      id_produto, tipo, quantidade, motivo, servico_id, funcionario_id
     )
-    select m.chave_id, 'entrada', m.quantidade,
+    select m.id_produto, 'entrada', m.quantidade,
            'Estorno OS #' || v_os_id || ' (cancelada)', v_os_id, p_funcionario_id
       from movimentacoes_estoque m
-     where m.servico_id = v_os_id and m.tipo = 'saida' and m.chave_id is not null;
+     where m.servico_id = v_os_id and m.tipo = 'saida' and m.id_produto is not null;
   end if;
 
   v_diferenca := v_pago - coalesce(p_pago_antigo, 0);
@@ -2456,11 +2434,11 @@ begin
 
   for v_item in select * from jsonb_array_elements(coalesce(p_itens, '[]'::jsonb))
   loop
-    if (v_item->>'chave_id') is not null then
+    if (v_item->>'id_produto') is not null then
       insert into movimentacoes_estoque (
-        chave_id, tipo, quantidade, motivo, servico_id, funcionario_id
+        id_produto, tipo, quantidade, motivo, servico_id, funcionario_id
       ) values (
-        (v_item->>'chave_id')::bigint, 'saida',
+        (v_item->>'id_produto')::bigint, 'saida',
         (v_item->>'quantidade')::integer,
         'Venda Rápida OS #' || v_os_id, v_os_id, p_funcionario_id
       );
@@ -2546,11 +2524,11 @@ begin
   if v_status = 'concluido' and not coalesce(p_ja_concluida, false) then
     for v_item in select * from jsonb_array_elements(coalesce(p_itens, '[]'::jsonb))
     loop
-      if (v_item->>'chave_id') is not null then
+      if (v_item->>'id_produto') is not null then
         insert into movimentacoes_estoque (
-          chave_id, tipo, quantidade, motivo, servico_id, funcionario_id
+          id_produto, tipo, quantidade, motivo, servico_id, funcionario_id
         ) values (
-          (v_item->>'chave_id')::bigint, 'saida',
+          (v_item->>'id_produto')::bigint, 'saida',
           (v_item->>'quantidade')::integer,
           'OS #' || v_os_id, v_os_id, p_funcionario_id
         );
@@ -2561,12 +2539,12 @@ begin
 
   if v_status = 'cancelado' and coalesce(p_ja_concluida, false) then
     insert into movimentacoes_estoque (
-      chave_id, tipo, quantidade, motivo, servico_id, funcionario_id
+      id_produto, tipo, quantidade, motivo, servico_id, funcionario_id
     )
-    select m.chave_id, 'entrada', m.quantidade,
+    select m.id_produto, 'entrada', m.quantidade,
            'Estorno OS #' || v_os_id || ' (cancelada)', v_os_id, p_funcionario_id
       from movimentacoes_estoque m
-     where m.servico_id = v_os_id and m.tipo = 'saida' and m.chave_id is not null;
+     where m.servico_id = v_os_id and m.tipo = 'saida' and m.id_produto is not null;
   end if;
 
   v_diferenca := v_pago - coalesce(p_pago_antigo, 0);
@@ -2591,6 +2569,38 @@ end;
 $rpc$;
 
 -- ------------------------------------------------------------
+-- modificações exclusivas desta instalação
+
+-- adiciona coluna de locação à tabela produtos
+alter table produtos add column if not exists locacao text;
+
+-- remove view chaves
+drop view if exists chaves;
+
+-- migra valores de itens de serviços após renomear coluna
+update servicos set itens = (
+  select jsonb_agg(
+    coalesce(
+      case when elemento ? 'chave_id' then
+        (elemento - 'chave_id') ||
+        jsonb_build_object('id_produto', elemento->'chave_id')
+      end,
+      elemento
+    )
+    order by posicao
+  )
+  from jsonb_array_elements(servicos.itens) with ordinality as itens_desestruturados(elemento, posicao)
+)
+where jsonb_typeof(servicos.itens) = 'array'
+and exists (
+  select 1
+  from jsonb_array_elements(servicos.itens) as item
+  where item ? 'chave_id'
+);
+
+-- ------------------------------------------------------------
+
+-- ------------------------------------------------------------
 -- Versao do schema no formato AAAAMMDDii (ano+mes+dia + indice 00-99 do dia).
 -- 2026082201 = 22/08/2026 (2a do dia: e-mail do cliente, data prevista da OS,
 -- formas de pagamento debito/parcelado).
@@ -2604,9 +2614,13 @@ $rpc$;
 --              sempre a cada publicacao, mesmo sem mudar tabela).
 -- 2026082701 = 27/08/2026 (2a do dia: data de vencimento na venda/OS pendente
 --              ou fiado - coluna servicos.data_vencimento e RPCs gravando).
+-- 2026091101: adicionado campo locação à tabela produtos
 -- As proximas migracoes usam a data do dia; nao voltar para numero sequencial.
 -- ------------------------------------------------------------
-insert into configuracoes (chave, valor) values ('schema_version', '2026082701')
+insert into configuracoes (chave, valor) values ('schema_version', '2026091101')
 on conflict (chave) do update set valor = excluded.valor;
 
 notify pgrst, 'reload schema';
+
+-- confirma transação visto que nenhum erro a interrompeu
+commit;

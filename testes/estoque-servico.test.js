@@ -32,11 +32,11 @@ async function prepararComProdutos() {
   }
 }
 
-// Conta quantas movimentações de estoque foram inseridas para uma dada chave_id.
+// Conta quantas movimentações de estoque foram inseridas para uma dada id_produto.
 function movimentacoesDaChave(registro, chaveId) {
   const inseridas = registro.insert.movimentacoes || []
   return inseridas.filter(function (m) {
-    return m && m.chave_id == chaveId
+    return m && m.id_produto == chaveId
   })
 }
 
@@ -56,8 +56,8 @@ test("PDV carrinho: serviço não exibe aviso ⚠️; físico com estoque 0 exib
 
   window.eval(
     "PDV_CART = [" +
-      "{ chave_id: 20, codigo: 'SV1', descricao: 'Abertura de Porta', quantidade: 1, preco_unit: 80, estoque: 0, tipo_produto: 'servico' }," +
-      "{ chave_id: 11, codigo: 'VR1', descricao: 'Item Variados', quantidade: 2, preco_unit: 5, estoque: 0, tipo_produto: 'variados' }" +
+      "{ id_produto: 20, codigo: 'SV1', descricao: 'Abertura de Porta', quantidade: 1, preco_unit: 80, estoque: 0, tipo_produto: 'servico' }," +
+      "{ id_produto: 11, codigo: 'VR1', descricao: 'Item Variados', quantidade: 2, preco_unit: 5, estoque: 0, tipo_produto: 'variados' }" +
       "]",
   )
   window.eval("renderPdvCart()")
@@ -108,15 +108,15 @@ test("PDV finalizar venda: serviço não gera movimentação de estoque; físico
   const { window, doc, registro } = await prepararComProdutos()
   await window.eval("pagePDV()")
   await esperarAssentar(window)
-  // pagePDV recarrega CACHE.chaves/tipos do supabase fake (vazio): re-semeia.
+  // pagePDV recarrega CACHE.produtos/tipos do supabase fake (vazio): re-semeia.
   semearCache(window)
   semearProdutos(window)
 
   // Carrinho: 1 serviço (qtd 3) + 1 físico 'chave' (qtd 2).
   window.eval(
     "PDV_CART = [" +
-      "{ chave_id: 20, codigo: 'SV1', descricao: 'Abertura de Porta', quantidade: 3, preco_unit: 80, estoque: 0, tipo_produto: 'servico' }," +
-      "{ chave_id: 10, codigo: 'CH1', descricao: 'Chave Fisica', quantidade: 2, preco_unit: 10, estoque: 3, tipo_produto: 'chave' }" +
+      "{ id_produto: 20, codigo: 'SV1', descricao: 'Abertura de Porta', quantidade: 3, preco_unit: 80, estoque: 0, tipo_produto: 'servico' }," +
+      "{ id_produto: 10, codigo: 'CH1', descricao: 'Chave Fisica', quantidade: 2, preco_unit: 10, estoque: 3, tipo_produto: 'chave' }" +
       "]",
   )
   // Pagamento à vista (concluído) para acionar a baixa de estoque.
@@ -131,13 +131,13 @@ test("PDV finalizar venda: serviço não gera movimentação de estoque; físico
   assert.strictEqual(
     movServico.length,
     0,
-    "serviço (chave_id 20) NÃO deveria gerar nenhuma movimentação de estoque. Gerou: " +
+    "serviço (id_produto 20) NÃO deveria gerar nenhuma movimentação de estoque. Gerou: " +
       JSON.stringify(movServico),
   )
   assert.strictEqual(
     movFisico.length,
     1,
-    "item físico (chave_id 10) deveria gerar 1 movimentação de saída. Gerou: " +
+    "item físico (id_produto 10) deveria gerar 1 movimentação de saída. Gerou: " +
       JSON.stringify(movFisico),
   )
   assert.strictEqual(movFisico[0].tipo, "saida")
@@ -156,7 +156,7 @@ test("PDV: vender serviço com estoque 0 em qualquer quantidade não impede a ve
 
   window.eval(
     "PDV_CART = [" +
-      "{ chave_id: 20, codigo: 'SV1', descricao: 'Abertura de Porta', quantidade: 99, preco_unit: 80, estoque: 0, tipo_produto: 'servico' }" +
+      "{ id_produto: 20, codigo: 'SV1', descricao: 'Abertura de Porta', quantidade: 99, preco_unit: 80, estoque: 0, tipo_produto: 'servico' }" +
       "]",
   )
   doc.getElementById("pdvPayStatus").value = "pago"
@@ -197,8 +197,8 @@ test("OS concluir: item de serviço não baixa estoque; item físico baixa", asy
   doc.getElementById("osMaoObra").value = "50,00"
   window.eval(
     "OS_ITENS = [" +
-      "{ chave_id: 20, descricao: 'Abertura de Porta', quantidade: 5, preco_unit: 80 }," +
-      "{ chave_id: 10, descricao: 'Chave Fisica', quantidade: 1, preco_unit: 10 }" +
+      "{ id_produto: 20, descricao: 'Abertura de Porta', quantidade: 5, preco_unit: 80 }," +
+      "{ id_produto: 10, descricao: 'Chave Fisica', quantidade: 1, preco_unit: 10 }" +
       "]",
   )
   // Status concluído para acionar a baixa de estoque.
@@ -214,13 +214,13 @@ test("OS concluir: item de serviço não baixa estoque; item físico baixa", asy
   assert.strictEqual(
     movServico.length,
     0,
-    "OS: serviço (chave_id 20) NÃO deveria baixar estoque. Baixou: " +
+    "OS: serviço (id_produto 20) NÃO deveria baixar estoque. Baixou: " +
       JSON.stringify(movServico),
   )
   assert.strictEqual(
     movFisico.length,
     1,
-    "OS: item físico (chave_id 10) deveria baixar 1 saída de estoque. Gerou: " +
+    "OS: item físico (id_produto 10) deveria baixar 1 saída de estoque. Gerou: " +
       JSON.stringify(movFisico),
   )
 })
@@ -240,7 +240,7 @@ test("REGRESSÃO 457: OS com serviço de estoque negativo não baixa estoque ao 
   semearProdutos(window)
   // Reproduz o sintoma: o serviço (id 20) já está com estoque negativo no cache.
   window.eval(
-    "CACHE.chaves.find(function (k) { return k.id === 20 }).estoque = -2",
+    "CACHE.produtos.find(function (k) { return k.id === 20 }).estoque = -2",
   )
   window.eval("osForm()")
 
@@ -248,7 +248,7 @@ test("REGRESSÃO 457: OS com serviço de estoque negativo não baixa estoque ao 
   doc.getElementById("osMaoObra").value = "80,00"
   window.eval(
     "OS_ITENS = [" +
-      "{ chave_id: 20, descricao: 'Abertura de veículo', quantidade: 1, preco_unit: 80 }" +
+      "{ id_produto: 20, descricao: 'Abertura de veículo', quantidade: 1, preco_unit: 80 }" +
       "]",
   )
   const selStatus = doc.getElementById("osStatus")
@@ -266,7 +266,7 @@ test("REGRESSÃO 457: OS com serviço de estoque negativo não baixa estoque ao 
   )
   // O cache do serviço permanece intacto (não fica mais negativo do que estava).
   const estoqueDepois = window.eval(
-    "CACHE.chaves.find(function (k) { return k.id === 20 }).estoque",
+    "CACHE.produtos.find(function (k) { return k.id === 20 }).estoque",
   )
   assert.strictEqual(
     estoqueDepois,

@@ -31,7 +31,7 @@ Nenhuma chamada de rede acontece — o Supabase, XLSX e QRCode são dublados.
 O QUE CADA TESTE COBRE
 ----------------------
 (a) SEM ID DUPLICADO POR FORMULÁRIO/MODAL
-    Para cada formulário (osForm, chaveForm, clienteForm, funcForm, txForm,
+    Para cada formulário (osForm, mostrarFormularioParaCriarProduto, clienteForm, funcForm, txForm,
     fabForm, catForm, eqForm) e para a tela de PDV (pagePDV), renderiza e
     confere que NÃO existe id repetido dentro dele. É este teste que aponta o
     "osDesc" duplicado.
@@ -46,10 +46,10 @@ O QUE CADA TESTE COBRE
 
 (c) CAMPOS DE SERVIÇO
     No cadastro de produto, ao escolher tipo "serviço", os campos de custo e
-    estoque somem (chaveAtualizarCamposServico).
+    estoque somem (atualizarTipoProdutoAoCriarProduto).
 
 (smoke) CADA PÁGINA E CADA FORMULÁRIO ABRE SEM LANÇAR EXCEÇÃO
-    pageDashboard, pagePDV, pageChaves, pageClientes, pageServicos,
+    pageDashboard, pagePDV, renderizarPaginaProdutos, pageClientes, pageServicos,
     pageFabricantes, pageCategorias, pageEquivalencias, pageEstoque,
     pageFinanceiro, pageRelatorios, pageTipos, pageFuncionarios,
     pageConfiguracoes — e os 8 formulários-modal abrindo e fechando.

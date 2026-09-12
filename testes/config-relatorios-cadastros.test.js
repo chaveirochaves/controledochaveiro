@@ -504,9 +504,9 @@ test("renderRelatorios exibe faturamento e vendas do CACHE no DOM", async functi
       "];" +
       "CACHE.servicos = [" +
       "  { id: 1, status: 'concluido', total: 150, funcionario_id: 1, forma_pagamento: 'Dinheiro', criado_em: '2026-07-01T10:00:00'," +
-      "    itens: [{ chave_id: 10, quantidade: 1, total: 150 }] }" +
+      "    itens: [{ id_produto: 10, quantidade: 1, total: 150 }] }" +
       "];" +
-      "CACHE.chaves = [{ id: 10, codigo: 'CH1', descricao: 'Chave Fisica' }];" +
+      "CACHE.produtos = [{ id: 10, codigo: 'CH1', descricao: 'Chave Fisica' }];" +
       "renderRelatorios();",
   )
   await esperarAssentar(window)

@@ -15,8 +15,8 @@
 // NUNCA use a "Secret key" (sb_secret_...) nem a "Database URL" (postgres://).
 // ============================================================
 
-window.SUPABASE_URL = 'https://spfjmvsvcdxhnfcnkffd.supabase.co'
-window.SUPABASE_KEY = 'sb_publishable_qVcelFtNu49tq8xboxGcDw_j5zbeJHO'
+window.SUPABASE_URL = ''
+window.SUPABASE_KEY = ''
 
 // ============================================================
 // AVISO DE ATIVAÇÃO PARA A MyKey  —  NÃO precisa mexer.

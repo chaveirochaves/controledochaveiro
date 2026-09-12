@@ -40,7 +40,7 @@ async function abrirFormularioOS() {
   // Renderiza a página (isto dispara carregar* que zeram o CACHE)
   window.eval("pageServicos()")
   await esperarAssentar(window)
-  // RE-SEMEIA depois de pageServicos (senão CACHE.chaves/clientes/etc vêm vazios)
+  // RE-SEMEIA depois de pageServicos (senão CACHE.produtos/clientes/etc vêm vazios)
   semearCache(window)
   semearProdutos(window)
   // Abre o modal do formulário de OS (cria osTitulo, osMaoObra, osDesc, etc.)
@@ -206,7 +206,7 @@ test("osSalvar com pago >= total: statusPag vira 'pago' e lança transação de 
 })
 
 // ------------------------------------------------------------
-// CASO 5: status 'concluido' (OS nova) com item FÍSICO (chave_id 10, qtd 1)
+// CASO 5: status 'concluido' (OS nova) com item FÍSICO (id_produto 10, qtd 1)
 //         → update em chaves (estoque) e insert em movimentacoes 'saida'.
 // ------------------------------------------------------------
 test("osSalvar concluída com item físico baixa estoque e movimenta saída", async function () {
@@ -216,9 +216,9 @@ test("osSalvar concluída com item físico baixa estoque e movimenta saída", as
   definirCampo(doc, "osMaoObra", "50,00")
   definirCampo(doc, "osStatus", "concluido")
 
-  // Adiciona um item físico (chave_id 10) via OS_ITENS + renderiza.
+  // Adiciona um item físico (id_produto 10) via OS_ITENS + renderiza.
   window.eval(
-    "OS_ITENS = [{ chave_id: 10, descricao: 'Chave Fisica', quantidade: 1, preco_unit: 10 }];" +
+    "OS_ITENS = [{ id_produto: 10, descricao: 'Chave Fisica', quantidade: 1, preco_unit: 10 }];" +
       "renderOsItens(); osRecalc();",
   )
 
@@ -243,7 +243,7 @@ test("osSalvar concluída com item físico baixa estoque e movimenta saída", as
 
   // insert em movimentacoes 'saida' para a chave 10 (a fonte única do estoque)
   const movs = (registro.insert.movimentacoes || []).filter(
-    (m) => m && m.chave_id == 10,
+    (m) => m && m.id_produto == 10,
   )
   assert.strictEqual(movs.length, 1, "deve gerar 1 movimentação da chave 10")
   assert.strictEqual(movs[0].tipo, "saida")
@@ -251,7 +251,7 @@ test("osSalvar concluída com item físico baixa estoque e movimenta saída", as
 
   // O cache local reflete o valor derivado (3 − 1 = 2), espelhando o trigger.
   const estoqueCache = window.eval(
-    "(CACHE.chaves.find(function(x){return x.id==10})||{}).estoque",
+    "(CACHE.produtos.find(function(x){return x.id==10})||{}).estoque",
   )
   assert.strictEqual(estoqueCache, 2, "cache otimista: estoque da chave 10 = 2")
 })
@@ -259,7 +259,7 @@ test("osSalvar concluída com item físico baixa estoque e movimenta saída", as
 // ------------------------------------------------------------
 // CASO 6: OS concluída SÓ com item de SERVIÇO não movimenta estoque.
 // O loop de baixa do osSalvar pula `k.tipo_produto === 'servico'`, então um
-// item de serviço (chave_id 20, tipo_produto 'servico') NÃO gera movimentação
+// item de serviço (id_produto 20, tipo_produto 'servico') NÃO gera movimentação
 // de saída nem update de estoque (serviço é mão de obra, sem estoque físico).
 // ------------------------------------------------------------
 test("OS concluída com item de SERVIÇO não movimenta estoque", async function () {
@@ -269,9 +269,9 @@ test("OS concluída com item de SERVIÇO não movimenta estoque", async function
   definirCampo(doc, "osMaoObra", "0,00")
   definirCampo(doc, "osStatus", "concluido")
 
-  // item de SERVIÇO: chave_id 20 (tipo_produto 'servico')
+  // item de SERVIÇO: id_produto 20 (tipo_produto 'servico')
   window.eval(
-    "OS_ITENS = [{ chave_id: 20, descricao: 'Abertura de Porta', quantidade: 1, preco_unit: 80 }];" +
+    "OS_ITENS = [{ id_produto: 20, descricao: 'Abertura de Porta', quantidade: 1, preco_unit: 80 }];" +
       "renderOsItens(); osRecalc();",
   )
 
@@ -279,7 +279,7 @@ test("OS concluída com item de SERVIÇO não movimenta estoque", async function
   await esperarAssentar(window)
 
   const movsServico = (registro.insert.movimentacoes || []).filter(
-    (m) => m && m.chave_id == 20,
+    (m) => m && m.id_produto == 20,
   )
   const updatesChaves = (registro.update.chaves || []).length
 
@@ -327,7 +327,7 @@ test("osRecalc atualiza o display #osTotal com subtotal - desconto", async funct
   definirCampo(doc, "osMaoObra", "40,00")
   // item de 2 x R$ 30 = 60 → subtotal = 40 + 60 = 100
   window.eval(
-    "OS_ITENS = [{ chave_id: 10, descricao: 'x', quantidade: 2, preco_unit: 30 }];",
+    "OS_ITENS = [{ id_produto: 10, descricao: 'x', quantidade: 2, preco_unit: 30 }];",
   )
   // sem desconto
   campoDescontoReal(doc).value = "0"
@@ -427,7 +427,7 @@ test("osItemAdd cria linha e osItemPick vincula produto do CACHE", async functio
   // pick da chave 10 na linha 0
   window.eval("osItemPick(0, '10')")
   assert.strictEqual(
-    window.eval("OS_ITENS[0].chave_id"),
+    window.eval("OS_ITENS[0].id_produto"),
     10,
     "osItemPick vincula a chave 10",
   )

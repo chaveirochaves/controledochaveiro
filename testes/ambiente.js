@@ -598,13 +598,13 @@ function semearCache(window) {
   )
 }
 
-// Semeia CACHE.chaves com produtos para os testes de estoque:
+// Semeia CACHE.produtos com produtos para os testes de estoque:
 //  - id 10: 'chave' (item físico, estoque 3) — DEVE movimentar estoque
 //  - id 11: 'variados' (item físico, estoque 0) — DEVE movimentar (é o caso do print)
 //  - id 20: 'servico' (mão de obra, estoque 0) — NÃO deve movimentar estoque
 function semearProdutos(window) {
   window.eval(
-    "CACHE.chaves = [" +
+    "CACHE.produtos = [" +
       "  { id: 10, codigo: 'CH1', descricao: 'Chave Fisica', preco_venda: 10, estoque: 3, tipo_produto: 'chave', fabricante_id: 1 }," +
       "  { id: 11, codigo: 'VR1', descricao: 'Item Variados', preco_venda: 5, estoque: 0, tipo_produto: 'variados', fabricante_id: 1 }," +
       "  { id: 20, codigo: 'SV1', descricao: 'Abertura de Porta', preco_venda: 80, estoque: 0, tipo_produto: 'servico', fabricante_id: 1 }" +
@@ -640,7 +640,7 @@ function idsDuplicados(elemento) {
   return Object.keys(duplicados)
 }
 
-// Acha o CONTAINER (.field) do "Estoque mín." no chaveForm de forma ROBUSTA,
+// Acha o CONTAINER (.field) do "Estoque mín." no mostrarFormularioParaCriarProduto de forma ROBUSTA,
 // SEM depender de um id específico. As duas estruturas do index.html divergem:
 //   - canônica:  id="chCampoEstMin"
 //   - alterada:  id="chCampoEstoqueMinimo"

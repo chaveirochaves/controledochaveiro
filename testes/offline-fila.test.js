@@ -207,7 +207,7 @@ test("offline: fluxo real de finalizar venda (pdvFinish) enfileira a RPC e refle
   // Monta um carrinho e chama pdvFinish() de verdade (o app monta o modal/DOM
   // mínimo que o fluxo usa; os campos ausentes caem nos defaults).
   window.eval(
-    "PDV_CART = [{ chave_id: 10, descricao: 'Chave Fisica', quantidade: 1, preco_unit: 10, unidade_medida: 'un', tipo_produto: 'chave', estoque: 3 }]",
+    "PDV_CART = [{ id_produto: 10, descricao: 'Chave Fisica', quantidade: 1, preco_unit: 10, unidade_medida: 'un', tipo_produto: 'chave', estoque: 3 }]",
   )
   // Garante os elementos que pdvFinish consulta ($()) para não quebrar.
   window.eval(

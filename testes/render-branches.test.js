@@ -30,7 +30,7 @@ function ultimo(lista) {
 }
 
 function movsDaChave(registro, chaveId) {
-  return (registro.insert.movimentacoes || []).filter((m) => m && m.chave_id == chaveId)
+  return (registro.insert.movimentacoes || []).filter((m) => m && m.id_produto == chaveId)
 }
 
 // ------------------------------------------------------------
@@ -84,7 +84,7 @@ test("pdvScan com múltiplos matches abre o modal de seleção de chave", async 
   await esperarAssentar(window)
   // dois produtos cujo termo aparece na descrição
   window.eval(
-    "CACHE.chaves = [" +
+    "CACHE.produtos = [" +
       "{ id: 1, codigo: 'K1', descricao: 'Chave Tetra Grande', preco_venda: 10, estoque: 2, tipo_produto: 'chave', fabricante_id: 1 }," +
       "{ id: 2, codigo: 'K2', descricao: 'Chave Tetra Pequena', preco_venda: 12, estoque: 5, tipo_produto: 'chave', fabricante_id: 1 }" +
       "]",
@@ -118,7 +118,7 @@ test("osDarBaixa de OS pendente com item físico gera movimentação de saída",
   semearCache(window)
   semearProdutos(window)
   window.eval(
-    "CACHE.servicos = [{ id: 88, titulo: 'Com peça', tipo: 'residencial', status: 'aberta', status_pagamento: 'pendente', cliente_id: 1, funcionario_id: 1, total: 100, valor_pago: 0, mao_de_obra: 0, forma_pagamento: 'Dinheiro', itens: [{ chave_id: 10, descricao: 'Chave Fisica', quantidade: 2, preco_unit: 10 }] }]",
+    "CACHE.servicos = [{ id: 88, titulo: 'Com peça', tipo: 'residencial', status: 'aberta', status_pagamento: 'pendente', cliente_id: 1, funcionario_id: 1, total: 100, valor_pago: 0, mao_de_obra: 0, forma_pagamento: 'Dinheiro', itens: [{ id_produto: 10, descricao: 'Chave Fisica', quantidade: 2, preco_unit: 10 }] }]",
   )
   await window.eval("osDarBaixa(88)")
   await esperarAssentar(window)

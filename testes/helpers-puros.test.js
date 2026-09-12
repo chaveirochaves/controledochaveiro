@@ -218,8 +218,8 @@ test("hojeISO devolve a data atual no formato aaaa-mm-dd", async () => {
 })
 
 // ---------------------------------------------------------------------------
-// nomeCliente / nomeFuncionario / nomeFabricante / nomeChave / descChave /
-// rotuloChave — leituras sobre o CACHE (semear antes).
+// nomeCliente / nomeFuncionario / nomeFabricante / obterNomeDoProduto / obterDescricaoDoProduto /
+// obterRotuloDoProduto — leituras sobre o CACHE (semear antes).
 // ---------------------------------------------------------------------------
 test("nomeCliente devolve o nome de id existente e '' de inexistente", async () => {
   const { window } = await montarAmbiente()
@@ -242,35 +242,35 @@ test("nomeFabricante devolve o nome de id existente e '—' de inexistente", asy
   assert.strictEqual(avaliar(window, "nomeFabricante(999)"), "—")
 })
 
-test("nomeChave compõe codigo · descricao e sinaliza chave removida", async () => {
+test("obterNomeDoProduto compõe codigo · descricao e sinaliza chave removida", async () => {
   const { window } = await montarAmbiente()
   semearCache(window)
   semearProdutos(window)
-  assert.strictEqual(avaliar(window, "nomeChave(10)"), "CH1 · Chave Fisica")
-  assert.strictEqual(avaliar(window, "nomeChave(999)"), "(chave removida)")
+  assert.strictEqual(avaliar(window, "obterNomeDoProduto(10)"), "CH1 · Chave Fisica")
+  assert.strictEqual(avaliar(window, "obterNomeDoProduto(999)"), "(chave removida)")
 })
 
-test("rotuloChave prefere o código; sem código usa a descrição", async () => {
+test("obterRotuloDoProduto prefere o código; sem código usa a descrição", async () => {
   const { window } = await montarAmbiente()
   assert.strictEqual(
-    avaliar(window, "rotuloChave({ codigo: 'CH1', descricao: 'Chave Fisica' })"),
+    avaliar(window, "obterRotuloDoProduto({ codigo: 'CH1', descricao: 'Chave Fisica' })"),
     "CH1",
   )
   assert.strictEqual(
-    avaliar(window, "rotuloChave({ descricao: 'Só Descrição' })"),
+    avaliar(window, "obterRotuloDoProduto({ descricao: 'Só Descrição' })"),
     "Só Descrição",
   )
   // objeto vazio -> fallback '—'
-  assert.strictEqual(avaliar(window, "rotuloChave({})"), "—")
+  assert.strictEqual(avaliar(window, "obterRotuloDoProduto({})"), "—")
 })
 
-test("descChave compõe fabricante + codigo + descricao", async () => {
+test("obterDescricaoDoProduto compõe fabricante + codigo + descricao", async () => {
   const { window } = await montarAmbiente()
   semearCache(window)
   assert.strictEqual(
     avaliar(
       window,
-      "descChave({ fabricante_id: 1, codigo: 'CH1', descricao: 'Chave Fisica' })",
+      "obterDescricaoDoProduto({ fabricante_id: 1, codigo: 'CH1', descricao: 'Chave Fisica' })",
     ),
     "Fabricante Teste CH1 — Chave Fisica",
   )
@@ -278,7 +278,7 @@ test("descChave compõe fabricante + codigo + descricao", async () => {
   assert.strictEqual(
     avaliar(
       window,
-      "descChave({ fabricante_id: 1, codigo: '', descricao: 'Chave Fisica' })",
+      "obterDescricaoDoProduto({ fabricante_id: 1, codigo: '', descricao: 'Chave Fisica' })",
     ),
     "Fabricante Teste — Chave Fisica",
   )

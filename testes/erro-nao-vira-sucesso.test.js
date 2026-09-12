@@ -47,7 +47,7 @@ async function prepararPdvComItem(window) {
   semearProdutos(window)
   // Coloca um produto fisico (id 10, estoque 3) no carrinho do PDV.
   window.eval(
-    "PDV_CART = [{ chave_id: 10, codigo: 'CH1', descricao: 'Chave Fisica'," +
+    "PDV_CART = [{ id_produto: 10, codigo: 'CH1', descricao: 'Chave Fisica'," +
       " quantidade: 1, unidade_medida: 'un', preco_unit: 10, estoque: 3 }];" +
       "if ($('pdvPayStatus')) $('pdvPayStatus').value = 'pago';",
   )

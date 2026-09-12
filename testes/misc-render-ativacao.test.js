@@ -33,11 +33,11 @@ test("renderEquivalencias usa cel: valor preenchido aparece, vazio vira '—'", 
 })
 
 // ------------------------------------------------------------
-// chaveRemoverImg: zera a foto pendente e esconde preview/botão
+// removerImagemProduto: zera a foto pendente e esconde preview/botão
 // ------------------------------------------------------------
-test("chaveRemoverImg marca imagem pendente como '' e esconde o preview", async function () {
+test("removerImagemProduto marca imagem pendente como '' e esconde o preview", async function () {
   const { window, doc } = await preparar()
-  window.eval("chaveForm()")
+  window.eval("mostrarFormularioParaCriarProduto()")
   await esperarAssentar(window)
   // simula uma foto no preview
   const prev = doc.getElementById("chImgPreview")
@@ -45,7 +45,7 @@ test("chaveRemoverImg marca imagem pendente como '' e esconde o preview", async 
     prev.src = "data:image/png;base64,AAAA"
     prev.style.display = ""
   }
-  window.eval("chaveRemoverImg()")
+  window.eval("removerImagemProduto()")
   assert.strictEqual(window.eval("_chImagemPendente"), "", "imagem pendente vira '' (remover)")
   if (prev) assert.strictEqual(prev.style.display, "none", "preview escondido")
   const rm = doc.getElementById("chImgRemover")

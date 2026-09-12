@@ -126,7 +126,7 @@ test("estoqueMovSalvar: entrada de 5 unidades insere movimentação 'entrada' (s
   const inseridas = registro.insert.movimentacoes || []
   assert.strictEqual(inseridas.length, 1, "deveria inserir 1 movimentação")
   const mov = inseridas[0]
-  assert.strictEqual(mov.chave_id, 10)
+  assert.strictEqual(mov.id_produto, 10)
   assert.strictEqual(mov.tipo, "entrada")
   assert.strictEqual(mov.quantidade, 5)
   assert.strictEqual(mov.motivo, "compra do fornecedor")
@@ -163,7 +163,7 @@ test("estoqueMovSalvar: saída de 2 unidades insere movimentação 'saida'", asy
 
 // ------------------------------------------------------------
 // (4) renderEstoque monta a tabela com as movimentações do CACHE, resolvendo
-//     o nome do produto (código · descrição) via CACHE.chaves.
+//     o nome do produto (código · descrição) via CACHE.produtos.
 //     A página zera o CACHE ao abrir; re-semeamos DEPOIS e populamos as
 //     movimentações antes de renderizar.
 // ------------------------------------------------------------
@@ -179,14 +179,14 @@ test("renderEstoque: lista as movimentações mostrando código/descrição do p
   semearProdutos(window)
   window.eval(
     "CACHE.movimentacoes = [" +
-      "{ id: 1, chave_id: 10, tipo: 'entrada', quantidade: 5, motivo: 'compra', criado_em: '2026-07-30T12:00:00Z', funcionario_id: 1 }" +
+      "{ id: 1, id_produto: 10, tipo: 'entrada', quantidade: 5, motivo: 'compra', criado_em: '2026-07-30T12:00:00Z', funcionario_id: 1 }" +
       "]",
   )
   window.eval("renderEstoque()")
 
   const lista = doc.getElementById("estList")
   const html = lista.innerHTML
-  // Aparece o código e a descrição do produto (montados por nomeChave).
+  // Aparece o código e a descrição do produto (montados por obterNomeDoProduto).
   assert.match(html, /CH1/, "deveria mostrar o código do produto (CH1)")
   assert.match(html, /Chave Fisica/, "deveria mostrar a descrição do produto")
   assert.match(html, /entrada/, "deveria mostrar o tipo da movimentação")
