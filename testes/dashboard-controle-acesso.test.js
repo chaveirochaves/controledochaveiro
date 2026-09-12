@@ -132,7 +132,7 @@ function semearDashboard(window, sessao) {
       "  { id: 1, tipo: 'entrada', valor: 777, criado_em: '" + hoje + "T10:00:00' }," +
       "  { id: 2, tipo: 'saida', valor: 123, criado_em: '" + hoje + "T11:00:00' }" +
       "];" +
-      "CACHE.chaves = [];" +
+      "CACHE.produtos = [];" +
       "CACHE.fabricantes = [];" +
       "CACHE.categorias = [];" +
       "CACHE.tipos = [];",
@@ -226,11 +226,11 @@ test("pdvSair: operador SEM o Painel não navega para o Painel ao descartar a ve
   // operador sem 'dashboard' nas permissoes → não acessa o Painel
   window.eval(
     "SESSAO = { id: 4, perfil: 'operador', nome: 'Operador', permissoes: JSON.stringify(['pdv','servicos','clientes']) };" +
-      "CACHE.chaves = []; CACHE.clientes = []; CACHE.formas = []; CACHE.fabricantes = [];",
+      "CACHE.produtos = []; CACHE.clientes = []; CACHE.formas = []; CACHE.fabricantes = [];",
   )
   await window.eval("pagePDV()")
   await esperarAssentar(window)
-  window.eval("PDV_CART = [{ chave_id: 10, quantidade: 1, preco_unit: 10, estoque: 3 }]")
+  window.eval("PDV_CART = [{ id_produto: 10, quantidade: 1, preco_unit: 10, estoque: 3 }]")
   // confirm dublado devolve true → descarta mesmo com itens
   window.eval("pdvSair()")
   await esperarAssentar(window)

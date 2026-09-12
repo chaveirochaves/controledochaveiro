@@ -96,7 +96,7 @@ test("modalTemEdicao é true só quando há input/textarea preenchido", async fu
 // ------------------------------------------------------------
 test("catCriarRapido insere categoria com o nome do prompt", async function () {
   const { window, registro } = await preparar()
-  window.eval("chaveForm()")
+  window.eval("mostrarFormularioParaCriarProduto()")
   await esperarAssentar(window)
   window.eval("window.__promptRespostas = ['Cadeados']")
   await window.eval("catCriarRapido()")
@@ -108,7 +108,7 @@ test("catCriarRapido insere categoria com o nome do prompt", async function () {
 
 test("catCriarRapido com prompt vazio não insere", async function () {
   const { window, registro } = await preparar()
-  window.eval("chaveForm()")
+  window.eval("mostrarFormularioParaCriarProduto()")
   await esperarAssentar(window)
   window.eval("window.__promptRespostas = ['']")
   await window.eval("catCriarRapido()")
@@ -121,7 +121,7 @@ test("catCriarRapido com prompt vazio não insere", async function () {
 
 test("fabCriarRapido insere fabricante com o nome do prompt", async function () {
   const { window, registro } = await preparar()
-  window.eval("chaveForm()")
+  window.eval("mostrarFormularioParaCriarProduto()")
   await esperarAssentar(window)
   window.eval("window.__promptRespostas = ['Yale']")
   await window.eval("fabCriarRapido()")
@@ -133,7 +133,7 @@ test("fabCriarRapido insere fabricante com o nome do prompt", async function () 
 
 test("tipoCriarRapido insere tipo com chave (slug) e ícone dos prompts", async function () {
   const { window, registro } = await preparar()
-  window.eval("chaveForm()")
+  window.eval("mostrarFormularioParaCriarProduto()")
   await esperarAssentar(window)
   // 1º prompt: rótulo; 2º prompt: ícone
   window.eval("window.__promptRespostas = ['Fechadura Digital', '🔒']")
@@ -174,12 +174,12 @@ test("pdvPickFromModal adiciona o produto ao carrinho e fecha o modal", async fu
   const { window } = await preparar()
   await window.eval("pagePDV()")
   await esperarAssentar(window)
-  // pagePDV recarrega CACHE.chaves do supabase fake (vazio): re-semeia.
+  // pagePDV recarrega CACHE.produtos do supabase fake (vazio): re-semeia.
   semearProdutos(window)
   window.eval("PDV_CART = []")
   window.eval("pdvPickFromModal(10)") // id 10 = chave física semeada
   const tam = window.eval("PDV_CART.length")
-  const chaveId = window.eval("PDV_CART[0] && PDV_CART[0].chave_id")
+  const chaveId = window.eval("PDV_CART[0] && PDV_CART[0].id_produto")
   assert.strictEqual(tam, 1, "deveria ter 1 item no carrinho")
   assert.strictEqual(chaveId, 10, "o item é a chave 10")
 })

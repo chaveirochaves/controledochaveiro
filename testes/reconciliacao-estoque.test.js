@@ -17,7 +17,7 @@ const { montarAmbiente, semearCache, esperarAssentar } = require("./ambiente")
 // Semeia produtos: id 10 físico (chave), id 20 serviço (não movimenta estoque).
 function semearProdutosRecon(window) {
   window.eval(
-    "CACHE.chaves = [" +
+    "CACHE.produtos = [" +
       "  { id: 10, descricao: 'Chave Fisica', tipo_produto: 'chave', estoque: 5 }," +
       "  { id: 20, descricao: 'Servico', tipo_produto: 'servico', estoque: 0 }" +
       "];",
@@ -34,12 +34,12 @@ test("reconciliarEstoque detecta OS concluída com peça física SEM saída", as
   // OS 103: pendente (não concluída) → não aparece.
   window.eval(
     "CACHE.servicos = [" +
-      "  { id: 100, titulo: 'Sem baixa', status: 'concluido', itens: [{ chave_id: 10, descricao: 'Chave Fisica', quantidade: 2 }] }," +
-      "  { id: 101, titulo: 'Com baixa', status: 'concluido', itens: [{ chave_id: 10, descricao: 'Chave Fisica', quantidade: 1 }] }," +
-      "  { id: 102, titulo: 'So servico', status: 'concluido', itens: [{ chave_id: 20, descricao: 'Servico', quantidade: 1 }] }," +
-      "  { id: 103, titulo: 'Pendente', status: 'pendente', itens: [{ chave_id: 10, descricao: 'Chave Fisica', quantidade: 1 }] }" +
+      "  { id: 100, titulo: 'Sem baixa', status: 'concluido', itens: [{ id_produto: 10, descricao: 'Chave Fisica', quantidade: 2 }] }," +
+      "  { id: 101, titulo: 'Com baixa', status: 'concluido', itens: [{ id_produto: 10, descricao: 'Chave Fisica', quantidade: 1 }] }," +
+      "  { id: 102, titulo: 'So servico', status: 'concluido', itens: [{ id_produto: 20, descricao: 'Servico', quantidade: 1 }] }," +
+      "  { id: 103, titulo: 'Pendente', status: 'pendente', itens: [{ id_produto: 10, descricao: 'Chave Fisica', quantidade: 1 }] }" +
       "];" +
-      "CACHE.movimentacoes = [ { id: 1, servico_id: 101, tipo: 'saida', chave_id: 10, quantidade: 1 } ];",
+      "CACHE.movimentacoes = [ { id: 1, servico_id: 101, tipo: 'saida', id_produto: 10, quantidade: 1 } ];",
   )
 
   const lista = JSON.parse(
@@ -69,10 +69,10 @@ test("reconciliarEstoque ignora OS já com saída, OS só de serviço e OS não 
   semearProdutosRecon(window)
   window.eval(
     "CACHE.servicos = [" +
-      "  { id: 200, titulo: 'Com baixa', status: 'concluido', itens: [{ chave_id: 10, descricao: 'Chave', quantidade: 1 }] }," +
-      "  { id: 201, titulo: 'So servico', status: 'concluido', itens: [{ chave_id: 20, descricao: 'Servico', quantidade: 1 }] }" +
+      "  { id: 200, titulo: 'Com baixa', status: 'concluido', itens: [{ id_produto: 10, descricao: 'Chave', quantidade: 1 }] }," +
+      "  { id: 201, titulo: 'So servico', status: 'concluido', itens: [{ id_produto: 20, descricao: 'Servico', quantidade: 1 }] }" +
       "];" +
-      "CACHE.movimentacoes = [ { id: 9, servico_id: 200, tipo: 'saida', chave_id: 10, quantidade: 1 } ];",
+      "CACHE.movimentacoes = [ { id: 9, servico_id: 200, tipo: 'saida', id_produto: 10, quantidade: 1 } ];",
   )
   const qtd = window.eval("reconciliarEstoque().length")
   assert.strictEqual(qtd, 0, "nenhuma OS faltante nesse cenário")
@@ -94,7 +94,7 @@ test("bannerReconciliacaoEstoque mostra aviso quando há faltantes e vazio quand
   )
   // com faltante
   window.eval(
-    "CACHE.servicos = [{ id: 300, titulo: 'X', status: 'concluido', itens: [{ chave_id: 10, descricao: 'Chave', quantidade: 1 }] }];",
+    "CACHE.servicos = [{ id: 300, titulo: 'X', status: 'concluido', itens: [{ id_produto: 10, descricao: 'Chave', quantidade: 1 }] }];",
   )
   const html = window.eval("bannerReconciliacaoEstoque()")
   assert.ok(/sem baixa de estoque/i.test(html), "banner cita o problema")
@@ -112,7 +112,7 @@ test("registrarMovimentacaoFaltante insere a saída que faltou para a OS", async
   semearProdutosRecon(window)
   window.eval(
     "CACHE.servicos = [{ id: 400, titulo: 'Corrigir', status: 'concluido'," +
-      " itens: [{ chave_id: 10, descricao: 'Chave', quantidade: 3 }] }];" +
+      " itens: [{ id_produto: 10, descricao: 'Chave', quantidade: 3 }] }];" +
       "CACHE.movimentacoes = [];",
   )
 
@@ -125,5 +125,5 @@ test("registrarMovimentacaoFaltante insere a saída que faltou para a OS", async
   assert.strictEqual(movs.length, 1, "insere uma saída para a OS 400")
   assert.strictEqual(movs[0].tipo, "saida")
   assert.strictEqual(movs[0].quantidade, 3, "baixa 3 unidades (o que faltou)")
-  assert.strictEqual(movs[0].chave_id, 10)
+  assert.strictEqual(movs[0].id_produto, 10)
 })

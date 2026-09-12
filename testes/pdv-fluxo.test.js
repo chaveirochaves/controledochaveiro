@@ -35,7 +35,7 @@ async function prepararPdv() {
   semearCache(window)
   semearProdutos(window)
   // renderiza a tela do PDV; os ids (pdvCartBody, pdvTotal, ...) passam a existir.
-  // pagePDV() chama carregarChaves()/carregarClientes(), que com o Supabase
+  // pagePDV() chama carregarProdutos()/carregarClientes(), que com o Supabase
   // dublado (data vazio) sobrescrevem o CACHE — por isso re-semeamos DEPOIS.
   await window.eval("pagePDV()")
   await esperarAssentar(window)
@@ -53,7 +53,7 @@ async function prepararPdv() {
 // Adiciona ao carrinho o produto do CACHE com o id informado.
 function adicionar(window, chaveId) {
   window.eval(
-    "pdvAddItem(CACHE.chaves.find(function(k){return k.id===" +
+    "pdvAddItem(CACHE.produtos.find(function(k){return k.id===" +
       chaveId +
       "}))",
   )
@@ -145,7 +145,7 @@ test("pdvRemove remove a linha certa do carrinho", async function () {
   // remove o do meio (índice 1 = produto 11)
   window.eval("pdvRemove(1)")
   assert.strictEqual(window.eval("PDV_CART.length"), 2, "restam 2 linhas")
-  const ids = window.eval("PDV_CART.map(function(it){return it.chave_id}).join(',')")
+  const ids = window.eval("PDV_CART.map(function(it){return it.id_produto}).join(',')")
   assert.strictEqual(ids, "10,20", "sobram exatamente os produtos 10 e 20")
 })
 
@@ -269,9 +269,9 @@ test("pdvFinish insere a venda em 'servicos' e registra movimentação de saída
   assert.strictEqual(vendas[0].is_pdv, true, "marcada como venda de PDV")
   assert.strictEqual(vendas[0].total, 20, "total da venda = 20")
 
-  // 2) movimentação de saída para o item físico (chave_id 10)
+  // 2) movimentação de saída para o item físico (id_produto 10)
   const movs = (registro.insert.movimentacoes || []).filter(function (m) {
-    return m && m.chave_id == 10
+    return m && m.id_produto == 10
   })
   assert.strictEqual(movs.length, 1, "uma movimentação para a chave 10")
   assert.strictEqual(movs[0].tipo, "saida", "movimentação é de saída")
@@ -289,7 +289,7 @@ test("pdvFinish insere a venda em 'servicos' e registra movimentação de saída
   )
   // O cache local reflete o derivado (3 − 2 = 1), espelhando o trigger.
   const estoqueCache = window.eval(
-    "(CACHE.chaves.find(function(x){return x.id==10})||{}).estoque",
+    "(CACHE.produtos.find(function(x){return x.id==10})||{}).estoque",
   )
   assert.strictEqual(estoqueCache, 1, "cache otimista: estoque da chave 10 = 1")
 
@@ -328,7 +328,7 @@ test("pdvFinish grava o funcionário escolhido no seletor (não só o logado)", 
 
   // Escolhe OUTRO funcionário e finaliza a venda.
   window.eval("document.getElementById('pdvFuncionario').value = '2'")
-  window.eval("pdvAddItem(CACHE.chaves.find(function(k){return k.id===10}))")
+  window.eval("pdvAddItem(CACHE.produtos.find(function(k){return k.id===10}))")
   await window.eval("pdvFinish()")
   await esperarAssentar(window)
   await esperarAssentar(window)
@@ -432,7 +432,7 @@ test("pdvScan lista TODOS os itens que casam, inclusive os de código vazio (cai
   const { window, doc } = await prepararPdv()
   // dois produtos "fechadura ... 1001": um com código '1001' e outro SEM código.
   window.eval(
-    "CACHE.chaves = [" +
+    "CACHE.produtos = [" +
       "  { id: 30, codigo: '1001', descricao: 'fechadura stam auxiliar fosco 1001', preco_venda: 50, estoque: 2, tipo_produto: 'chave', fabricante_id: 1 }," +
       "  { id: 29, codigo: '', descricao: 'fechadura stam fosco auxiliar 1001', preco_venda: 50, estoque: 1, tipo_produto: 'chave', fabricante_id: 1 }" +
       "];",
@@ -453,7 +453,7 @@ test("pdvScan lista TODOS os itens que casam, inclusive os de código vazio (cai
   // ao escolher o de código vazio, ele entra no carrinho normalmente.
   window.eval("pdvPickFromModal(29)")
   assert.strictEqual(window.eval("PDV_CART.length"), 1, "item sem código foi adicionado")
-  assert.strictEqual(window.eval("PDV_CART[0].chave_id"), 29, "é o item de código vazio")
+  assert.strictEqual(window.eval("PDV_CART[0].id_produto"), 29, "é o item de código vazio")
 })
 
 // ------------------------------------------------------------

@@ -62,7 +62,7 @@ async function prepararPdv() {
 
 function adicionar(window, chaveId) {
   window.eval(
-    "pdvAddItem(CACHE.chaves.find(function(k){return k.id===" +
+    "pdvAddItem(CACHE.produtos.find(function(k){return k.id===" +
       chaveId +
       "}))",
   )

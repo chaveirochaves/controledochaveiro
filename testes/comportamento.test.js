@@ -30,7 +30,7 @@ const {
 // isoladamente e o HTML renderizado é inspecionado.
 const FORMULARIOS_MODAL = [
   "osForm",
-  "chaveForm",
+  "mostrarFormularioParaCriarProduto",
   "clienteForm",
   "funcForm",
   "txForm",
@@ -43,7 +43,7 @@ const FORMULARIOS_MODAL = [
 const PAGINAS = [
   "pageDashboard",
   "pagePDV",
-  "pageChaves",
+  "renderizarPaginaProdutos",
   "pageClientes",
   "pageServicos",
   "pageFabricantes",
@@ -108,7 +108,7 @@ FORMULARIOS_MODAL.forEach(function (nomeForm) {
     "sem id duplicado no formulário: " + nomeForm,
     async function () {
       const { window, doc } = await prepararApp()
-      // catForm/funcForm etc. usam modal normal; clienteForm/chaveForm sem
+      // catForm/funcForm etc. usam modal normal; clienteForm/mostrarFormularioParaCriarProduto sem
       // contexto também usam modal normal. Chamamos sem argumentos.
       window.eval(nomeForm + "()")
       const modal = doc.getElementById("modal")
@@ -218,7 +218,7 @@ test("desconto do PDV em R$: Total reflete subtotal − desconto", async functio
 
 // ------------------------------------------------------------
 // (c) Campos de serviço: ao escolher tipo de produto "serviço" no
-//     chaveForm, os campos de custo/estoque somem.
+//     mostrarFormularioParaCriarProduto, os campos de custo/estoque somem.
 // ------------------------------------------------------------
 // Este teste afirma o COMPORTAMENTO (serviço não mostra custo/estoque mín. ao
 // usuário), não a MECÂNICA. Aceita as duas estruturas do index.html:
@@ -226,9 +226,9 @@ test("desconto do PDV em R$: Total reflete subtotal − desconto", async functio
 //   - render condicional: o campo some do DOM.
 // Também aceita o id antigo (chCampoEstMin) e o novo (chCampoEstoqueMinimo),
 // resolvendo o campo de estoque mín. por id-ou-rótulo.
-test("chaveForm: tipo 'serviço' ESCONDE custo e estoque (toggle por display)", async function () {
+test("mostrarFormularioParaCriarProduto: tipo 'serviço' ESCONDE custo e estoque (toggle por display)", async function () {
   const { window, doc } = await prepararApp()
-  window.eval("chaveForm()")
+  window.eval("mostrarFormularioParaCriarProduto()")
 
   // por padrão (tipo != serviço), custo e estoque mín. estão VISÍVEIS
   assert.ok(
@@ -242,7 +242,7 @@ test("chaveForm: tipo 'serviço' ESCONDE custo e estoque (toggle por display)", 
 
   // troca para 'serviço' e dispara o toggle real do app
   doc.getElementById("chTipoProduto").value = "servico"
-  window.eval("chaveAtualizarCamposServico()")
+  window.eval("atualizarTipoProdutoAoCriarProduto()")
 
   assert.ok(
     campoDeServicoOcultado(doc, "chCampoCusto"),
@@ -255,7 +255,7 @@ test("chaveForm: tipo 'serviço' ESCONDE custo e estoque (toggle por display)", 
 
   // volta para 'chave' e confirma que reaparece
   doc.getElementById("chTipoProduto").value = "chave"
-  window.eval("chaveAtualizarCamposServico()")
+  window.eval("atualizarTipoProdutoAoCriarProduto()")
   assert.ok(
     campoDeServicoVisivel(doc, "chCampoCusto"),
     "ao voltar para 'chave', o custo deveria voltar a aparecer",
@@ -269,9 +269,9 @@ test("chaveForm: tipo 'serviço' ESCONDE custo e estoque (toggle por display)", 
 //      Caso-chave: abrir SERVIÇO e trocar para PRODUTO TRAZ os campos
 //      de volta (o toggle antigo por display não fazia isso ao remontar).
 // ------------------------------------------------------------
-test("chaveForm: 'serviço' esconde custo/estoque mín./estoque inicial; voltar a produto os traz de volta", async function () {
+test("mostrarFormularioParaCriarProduto: 'serviço' esconde custo/estoque mín./estoque inicial; voltar a produto os traz de volta", async function () {
   const { window, doc } = await prepararApp()
-  window.eval("chaveForm()")
+  window.eval("mostrarFormularioParaCriarProduto()")
 
   // Cadastro NOVO (não-edição), tipo padrão: os três campos físicos estão
   // VISÍVEIS ao usuário (existem no DOM e sem display:none). Campo de estoque
@@ -289,7 +289,7 @@ test("chaveForm: 'serviço' esconde custo/estoque mín./estoque inicial; voltar 
   // troca para 'serviço': os campos físicos somem PARA O USUÁRIO (display:none
   // ou removidos do DOM, conforme a estrutura).
   doc.getElementById("chTipoProduto").value = "servico"
-  window.eval("chaveAtualizarCamposServico()")
+  window.eval("atualizarTipoProdutoAoCriarProduto()")
 
   assert.ok(campoDeServicoOcultado(doc, "chCampoCusto"), "serviço esconde custo")
   assert.ok(
@@ -303,7 +303,7 @@ test("chaveForm: 'serviço' esconde custo/estoque mín./estoque inicial; voltar 
 
   // volta de 'serviço' para 'chave' e TODOS reaparecem
   doc.getElementById("chTipoProduto").value = "chave"
-  window.eval("chaveAtualizarCamposServico()")
+  window.eval("atualizarTipoProdutoAoCriarProduto()")
   assert.ok(campoDeServicoVisivel(doc, "chCampoCusto"), "serviço→produto: custo volta")
   assert.ok(
     campoDeServicoVisivel(doc, acharCampoEstoqueMinimo(doc)),

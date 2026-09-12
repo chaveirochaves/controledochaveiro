@@ -45,19 +45,19 @@ function ultimoInsertChaves(registro) {
 // ------------------------------------------------------------
 test("cadastro de serviço zera preco_custo e estoque_min (não rastreia estoque)", async function () {
   const { window, doc, registro } = await prepararComProdutos()
-  window.eval("chaveForm()")
+  window.eval("mostrarFormularioParaCriarProduto()")
   await esperarAssentar(window)
 
   // Seleciona tipo 'servico' e dispara o toggle real (esconde campos físicos).
   const selTipo = doc.getElementById("chTipoProduto")
   selTipo.value = "servico"
-  window.eval("chaveAtualizarCamposServico()")
+  window.eval("atualizarTipoProdutoAoCriarProduto()")
 
   // Nome é obrigatório.
   doc.getElementById("chDesc").value = "Abertura de Porta"
   doc.getElementById("chPrecoV").value = "80"
 
-  await window.eval("chaveSalvar(0, null)")
+  await window.eval("salvarProduto(0, null)")
   await esperarAssentar(window)
 
   const dados = ultimoInsertChaves(registro)
@@ -82,18 +82,18 @@ test("cadastro de serviço zera preco_custo e estoque_min (não rastreia estoque
 // ------------------------------------------------------------
 test("cadastro de item físico grava estoque numérico (0 quando vazio)", async function () {
   const { window, doc, registro } = await prepararComProdutos()
-  window.eval("chaveForm()")
+  window.eval("mostrarFormularioParaCriarProduto()")
   await esperarAssentar(window)
 
   // Mantém tipo 'chave' (físico). Preenche nome; deixa estoque inicial vazio.
   doc.getElementById("chTipoProduto").value = "chave"
-  window.eval("chaveAtualizarCamposServico()")
+  window.eval("atualizarTipoProdutoAoCriarProduto()")
   doc.getElementById("chDesc").value = "Chave Tetra"
   doc.getElementById("chPrecoV").value = "12"
   doc.getElementById("chEstMin").value = "2"
   doc.getElementById("chEstoque").value = "" // vazio -> 0
 
-  await window.eval("chaveSalvar(0, null)")
+  await window.eval("salvarProduto(0, null)")
   await esperarAssentar(window)
 
   const dados = ultimoInsertChaves(registro)
@@ -113,7 +113,7 @@ test("serviço→produto: campos reaparecem e salvam numéricos", async function
   const { window, doc, registro } = await prepararComProdutos()
   // Abre um serviço existente (edição).
   window.eval(
-    "chaveForm({ id: 20, codigo: 'SV1', descricao: 'Abertura', preco_venda: 80, preco_custo: 0, estoque: 0, estoque_min: 0, tipo_produto: 'servico', fabricante_id: 1, tipo: 'residencial' })",
+    "mostrarFormularioParaCriarProduto({ id: 20, codigo: 'SV1', descricao: 'Abertura', preco_venda: 80, preco_custo: 0, estoque: 0, estoque_min: 0, tipo_produto: 'servico', fabricante_id: 1, tipo: 'residencial' })",
   )
   await esperarAssentar(window)
 
@@ -131,7 +131,7 @@ test("serviço→produto: campos reaparecem e salvam numéricos", async function
 
   // Troca para 'chave' (produto): campos voltam a aparecer.
   doc.getElementById("chTipoProduto").value = "chave"
-  window.eval("chaveAtualizarCamposServico()")
+  window.eval("atualizarTipoProdutoAoCriarProduto()")
   assert.ok(
     campoDeServicoVisivel(doc, "chCampoCusto"),
     "serviço→produto: custo reaparece",
@@ -144,7 +144,7 @@ test("serviço→produto: campos reaparecem e salvam numéricos", async function
   // Preenche custo e estoque mín. e salva (edição = update).
   doc.getElementById("chPrecoC").value = "7"
   doc.getElementById("chEstMin").value = "3"
-  await window.eval("chaveSalvar(20, null)")
+  await window.eval("salvarProduto(20, null)")
   await esperarAssentar(window)
 
   const atualizados = registro.update.chaves || []
@@ -164,21 +164,21 @@ test("lista de produtos: serviço sem badge de estoque baixo; físico abaixo do 
   // Semeia produtos: um serviço com estoque null e estoque_min null,
   // um físico com estoque baixo (1 <= min 5).
   window.eval(
-    "CACHE.chaves = [" +
+    "CACHE.produtos = [" +
       "  { id: 30, codigo: 'SV9', descricao: 'Servico Sem Estoque', preco_venda: 80, estoque: null, estoque_min: null, tipo_produto: 'servico', fabricante_id: 1, tipo: 'residencial' }," +
       "  { id: 31, codigo: 'CH9', descricao: 'Chave Baixa', preco_venda: 10, estoque: 1, estoque_min: 5, tipo_produto: 'chave', fabricante_id: 1, tipo: 'residencial' }" +
       "];",
   )
-  await window.eval("pageChaves()")
+  await window.eval("renderizarPaginaProdutos()")
   await esperarAssentar(window)
-  // pageChaves recarrega do supabase fake (vazio): re-semeia e re-renderiza.
+  // renderizarPaginaProdutos recarrega do supabase fake (vazio): re-semeia e re-renderiza.
   window.eval(
-    "CACHE.chaves = [" +
+    "CACHE.produtos = [" +
       "  { id: 30, codigo: 'SV9', descricao: 'Servico Sem Estoque', preco_venda: 80, estoque: null, estoque_min: null, tipo_produto: 'servico', fabricante_id: 1, tipo: 'residencial' }," +
       "  { id: 31, codigo: 'CH9', descricao: 'Chave Baixa', preco_venda: 10, estoque: 1, estoque_min: 5, tipo_produto: 'chave', fabricante_id: 1, tipo: 'residencial' }" +
       "];",
   )
-  window.eval("renderChaves()")
+  window.eval("renderizarProdutos()")
 
   const tabela = doc.getElementById("chList")
   const linhas = tabela.querySelectorAll("tbody tr")
@@ -235,13 +235,13 @@ test("estoque baixo ignora serviço (estoque null): null <= min dá false", asyn
 //     valorCusto = 10 (5×2), valorVenda = 15 (5×3). Serviço não entra.
 // ------------------------------------------------------------
 // Semeia o CACHE e renderiza; devolve o texto do resumo de valuation.
-// pageChaves() monta o container #chList (e recarrega do supabase fake vazio),
-// então semeamos o CACHE DEPOIS e chamamos renderChaves() na mão.
+// renderizarPaginaProdutos() monta o container #chList (e recarrega do supabase fake vazio),
+// então semeamos o CACHE DEPOIS e chamamos renderizarProdutos() na mão.
 async function renderizarComListaEValidarResumo(window, doc, listaLiteral) {
-  await window.eval("pageChaves()")
+  await window.eval("renderizarPaginaProdutos()")
   await esperarAssentar(window)
-  window.eval("CACHE.chaves = " + listaLiteral + ";")
-  window.eval("renderChaves()")
+  window.eval("CACHE.produtos = " + listaLiteral + ";")
+  window.eval("renderizarProdutos()")
   const resumo = doc.querySelector("#chList .resumo-estoque")
   assert.ok(resumo, "deveria renderizar o resumo de valuation")
   return resumo.textContent
@@ -279,7 +279,7 @@ test("valuation: serviço com estoque/custo/venda não-nulos por engano ainda fi
 
 test("valuation: funcionário sem permissão de faturamento não vê o resumo de valor do estoque", async function () {
   const { window, doc } = await prepararComProdutos()
-  await window.eval("pageChaves()")
+  await window.eval("renderizarPaginaProdutos()")
   await esperarAssentar(window)
   // Operador comum, sem a permissão 'faturamento': o valor do estoque é dado do
   // dono e não pode nem chegar ao DOM.
@@ -287,9 +287,9 @@ test("valuation: funcionário sem permissão de faturamento não vê o resumo de
     "SESSAO = { id: 2, usuario: 'balcao', nome: 'Balcao', perfil: 'operador', permissoes: '' };",
   )
   window.eval(
-    "CACHE.chaves = [{ id: 50, codigo: 'CH3', descricao: 'Chave Fisica', preco_custo: 2, preco_venda: 3, estoque: 5, estoque_min: 1, tipo_produto: 'chave', fabricante_id: 1, tipo: 'residencial' }];",
+    "CACHE.produtos = [{ id: 50, codigo: 'CH3', descricao: 'Chave Fisica', preco_custo: 2, preco_venda: 3, estoque: 5, estoque_min: 1, tipo_produto: 'chave', fabricante_id: 1, tipo: 'residencial' }];",
   )
-  window.eval("renderChaves()")
+  window.eval("renderizarProdutos()")
   const resumo = doc.querySelector("#chList .resumo-estoque")
   assert.strictEqual(resumo, null, "sem permissão de faturamento, o resumo de valor não pode ser renderizado")
   // A tabela de produtos em si continua visível (só o valor financeiro some).

@@ -138,9 +138,9 @@ test("clienteRapidoSalvar sem nome não grava", async function () {
 // ------------------------------------------------------------
 // CHAVE RÁPIDA e EXCLUSÃO (soft delete)
 // ------------------------------------------------------------
-test("chaveRapidaSalvar insere produto com preço convertido e custo/min zerados", async function () {
+test("salvarProdutoRapido insere produto com preço convertido e custo/min zerados", async function () {
   const { window, doc, registro } = await preparar()
-  window.eval("chaveRapida('os')")
+  window.eval("criarProdutoRapido('os')")
   await esperarAssentar(window)
 
   doc.getElementById("qkCod").value = "GD-1"
@@ -148,7 +148,7 @@ test("chaveRapidaSalvar insere produto com preço convertido e custo/min zerados
   doc.getElementById("qkPreco").value = "R$ 12,50"
   doc.getElementById("qkEstoque").value = "4"
 
-  await window.eval("chaveRapidaSalvar('os')")
+  await window.eval("salvarProdutoRapido('os')")
   await esperarAssentar(window)
 
   const dados = ultimo(registro.insert.chaves)
@@ -160,13 +160,13 @@ test("chaveRapidaSalvar insere produto com preço convertido e custo/min zerados
   assert.strictEqual(dados.estoque, 4)
 })
 
-test("chaveRapidaSalvar sem código/descrição não grava", async function () {
+test("salvarProdutoRapido sem código/descrição não grava", async function () {
   const { window, doc, registro } = await preparar()
-  window.eval("chaveRapida('os')")
+  window.eval("criarProdutoRapido('os')")
   await esperarAssentar(window)
   doc.getElementById("qkCod").value = ""
   doc.getElementById("qkDesc").value = ""
-  await window.eval("chaveRapidaSalvar('os')")
+  await window.eval("salvarProdutoRapido('os')")
   await esperarAssentar(window)
   assert.ok(
     !registro.insert.chaves || registro.insert.chaves.length === 0,
@@ -174,16 +174,16 @@ test("chaveRapidaSalvar sem código/descrição não grava", async function () {
   )
 })
 
-test("chaveExcluir é soft delete: update ativo=false (não delete físico)", async function () {
+test("excluirProduto é soft delete: update ativo=false (não delete físico)", async function () {
   const { window, registro } = await preparar()
-  await window.eval("chaveExcluir(10)")
+  await window.eval("excluirProduto(10)")
   await esperarAssentar(window)
   const dados = ultimo(registro.update.chaves)
-  assert.ok(dados, "chaveExcluir deveria fazer update")
+  assert.ok(dados, "excluirProduto deveria fazer update")
   assert.strictEqual(dados.ativo, false, "soft delete grava ativo=false")
   assert.ok(
     !registro.delete.chaves || registro.delete.chaves.length === 0,
-    "chaveExcluir NÃO deve fazer delete físico (mantém histórico)",
+    "excluirProduto NÃO deve fazer delete físico (mantém histórico)",
   )
 })
 

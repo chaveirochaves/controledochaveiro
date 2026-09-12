@@ -270,14 +270,14 @@ test("estoque negativo: sincroniza e avisa quais produtos ficaram negativos", as
   // OFFLINE: uma venda por RPC (será reproduzida no servidor). O reflexo é só
   // visual neste estágio; o estoque negativo aparece na RECARGA pós-sync.
   await window.eval(
-    "escreverRpc('pdv_finalizar_venda', { p_itens: [{ chave_id: 10, quantidade: 99 }] }, { refletirOtimista: function(idTemp){ return { data: idTemp, error: null } } })",
+    "escreverRpc('pdv_finalizar_venda', { p_itens: [{ id_produto: 10, quantidade: 99 }] }, { refletirOtimista: function(idTemp){ return { data: idTemp, error: null } } })",
   )
   await esperarAssentar(window)
   assert.strictEqual(await tamanhoFila(window), 1)
 
   // O servidor aceita a RPC e, na recarga pós-sync, devolve o produto 10 com
-  // estoque NEGATIVO (vendeu-se mais do que havia). carregarChaves preenche
-  // CACHE.chaves a partir de registro.__linhas.chaves.
+  // estoque NEGATIVO (vendeu-se mais do que havia). carregarProdutos preenche
+  // CACHE.produtos a partir de registro.__linhas.chaves.
   registro.__rpcDisponivel = true
   registro.__rpcRetorno = { id: 321 }
   registro.__linhas.chaves = [

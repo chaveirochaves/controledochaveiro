@@ -12,7 +12,7 @@ const fs = require("node:fs")
 const path = require("node:path")
 
 const RAIZ = path.join(__dirname, "..")
-const VERSAO_ESPERADA = "2026082703"
+const VERSAO_ESPERADA = "2026091101"
 
 function lerArquivo(nome) {
   return fs.readFileSync(path.join(RAIZ, nome), "utf8")

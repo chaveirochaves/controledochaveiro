@@ -35,7 +35,7 @@
       // para ganhar a atomicidade — por isso o aviso é informativo, não bloqueia.
       // Versão do banco no formato AAAAMMDDii (ano+mês+dia + índice 00-99 do dia).
       // Ex.: 2026082200 = 22/08/2026, 1ª mudança do dia. Cresce com o tempo.
-      const SCHEMA_VERSION_EXIGIDA = 2026082701
+      const SCHEMA_VERSION_EXIGIDA = 2026091101
 
       // ---- Tema claro/escuro escolhido pelo usuario ----
       // A escolha fica guardada no proprio navegador (localStorage). Aplicamos
@@ -912,6 +912,12 @@
         font-size: 12px;
         color: var(--muted);
       }
+
+      #pdvCartBody .pdv-cart-row .pinfo .pcode span.locacao::before {
+        content: "-";
+        margin-left: 0.2rem;
+      }
+
       .pdv-qty {
         display: flex;
         align-items: center;
@@ -1987,7 +1993,7 @@ compreendeu e concorda integralmente com este Termo.</pre
           <a data-page="pdv" class="nav-pdv">🛒 Venda Rápida</a>
           <a data-page="servicos">📋 Ordens de Serviço</a>
           <a data-page="clientes">👥 Clientes</a>
-          <a data-page="chaves">📦 Produtos</a>
+          <a data-page="produtos">📦 Produtos</a>
           <a data-page="equivalencias">🔄 Equivalência de Chaves</a>
           <a data-page="fabricantes">🏭 Fabricantes</a>
           <a data-page="categorias">🏷️ Categorias</a>
@@ -2088,7 +2094,7 @@ compreendeu e concorda integralmente com este Termo.</pre
       // Cache local dos dados (carregados do banco)
       let CACHE = {
         fabricantes: [],
-        chaves: [],
+        produtos: [],
         clientes: [],
         servicos: [],
         transacoes: [],
@@ -2193,7 +2199,7 @@ compreendeu e concorda integralmente com este Termo.</pre
         // Só as tabelas que o app realmente carrega do Supabase. Manter esta
         // lista sincronizada com as funções carregar*.
         const TABELAS = [
-          "chaves",
+          "produtos",
           "clientes",
           "servicos",
           "transacoes",
@@ -2564,7 +2570,7 @@ compreendeu e concorda integralmente com este Termo.</pre
       // ------------------------------------------------------------
       const MAPA_TABELA_CACHE = {
         clientes: "clientes",
-        chaves: "chaves",
+        produtos: "produtos",
         fabricantes: "fabricantes",
         categorias: "categorias",
         servicos: "servicos",
@@ -2827,9 +2833,9 @@ compreendeu e concorda integralmente com este Termo.</pre
       // Antes de reproduzir uma operação, trocamos todo id temporário que
       // aparece nela pelo id real correspondente. Isto vale para:
       //   • o id do próprio registro (update/delete de linha criada offline);
-      //   • as chaves estrangeiras (cliente_id, servico_id, chave_id,
+      //   • as chaves estrangeiras (cliente_id, servico_id, id_produto,
       //     funcionario_id, os_id) — em qualquer profundidade (o payload da OS
-      //     tem itens[] com chave_id, por exemplo).
+      //     tem itens[] com produto_id, por exemplo).
       //
       // Se um id temporário referenciado AINDA não tem real no mapa (o pai não
       // sincronizou — faltou ou deu erro), sinalizamos "pendência não resolvida":
@@ -2843,7 +2849,7 @@ compreendeu e concorda integralmente com este Termo.</pre
         "id",
         "cliente_id",
         "servico_id",
-        "chave_id",
+        "produto_id",
         "funcionario_id",
         "os_id",
         "p_os_id",
@@ -3112,7 +3118,7 @@ compreendeu e concorda integralmente com este Termo.</pre
       function recarregarCachesAposSincronizar() {
         const carregadores = [
           typeof carregarClientes === "function" ? carregarClientes : null,
-          typeof carregarChaves === "function" ? carregarChaves : null,
+          typeof carregarProdutos === "function" ? carregarProdutos : null,
           typeof carregarServicos === "function" ? carregarServicos : null,
           typeof carregarTransacoes === "function" ? carregarTransacoes : null,
           typeof carregarMovimentacoes === "function"
@@ -3341,7 +3347,7 @@ compreendeu e concorda integralmente com este Termo.</pre
       // havia), avisa o dono listando quais repor. Política: ACEITAR o negativo
       // (o servidor recalcula; a reconciliação existente cuida) e apenas AVISAR.
       function avisarEstoqueNegativo() {
-        const lista = Array.isArray(CACHE.chaves) ? CACHE.chaves : []
+        const lista = Array.isArray(CACHE.produtos) ? CACHE.produtos : []
         const negativos = lista.filter(function ehNegativo(produto) {
           return produto && typeof produto.estoque === "number" && produto.estoque < 0
         })
@@ -3545,7 +3551,7 @@ compreendeu e concorda integralmente com este Termo.</pre
         { k: "pdv", nome: "Venda Rápida" },
         { k: "servicos", nome: "Ordens de Serviço" },
         { k: "clientes", nome: "Clientes" },
-        { k: "chaves", nome: "Produtos" },
+        { k: "produtos", nome: "Produtos" },
         { k: "fabricantes", nome: "Fabricantes" },
         { k: "categorias", nome: "Categorias" },
         { k: "tipos", nome: "Tipos de Produto" },
@@ -3573,7 +3579,7 @@ compreendeu e concorda integralmente com este Termo.</pre
           "pdv",
           "servicos",
           "clientes",
-          "chaves",
+          "produtos",
           "fabricantes",
           "equivalencias",
           "estoque",
@@ -3585,7 +3591,7 @@ compreendeu e concorda integralmente com este Termo.</pre
           "pdv",
           "servicos",
           "clientes",
-          "chaves",
+          "produtos",
           "equivalencias",
         ],
       }
@@ -3653,7 +3659,7 @@ compreendeu e concorda integralmente com este Termo.</pre
         closeModal()
       })
 
-      // Modal de 2ª camada (para criar cliente/chave SEM perder o formulário aberto)
+      // Modal de 2ª camada (para criar cliente/produto SEM perder o formulário aberto)
       function openModal2(title, body, footer) {
         $("modal2").innerHTML = `
     <div class="modal-h"><h3>${title}</h3><button onclick="closeModal2()">✕</button></div>
@@ -3736,116 +3742,6 @@ compreendeu e concorda integralmente com este Termo.</pre
           toast("Erro ao salvar cliente", "err")
           btn.disabled = false
           btn.textContent = "Salvar cliente"
-        }
-      }
-
-      // ---- Criar CHAVE/PRODUTO rápido (contexto: 'os') ----
-      function chaveRapida(contexto) {
-        if (!CACHE.fabricantes.length) {
-          toast("Cadastre um fabricante primeiro", "err")
-          return
-        }
-        openModal2(
-          "Nova Chave / Produto",
-          `
-    <div class="row">
-      <div class="field"><label>Fabricante *</label>
-        <select id="qkFab">${CACHE.fabricantes.map((f) => `<option value="${f.id}">${esc(f.nome)}</option>`).join("")}</select></div>
-      <div class="field"><label>Código *</label><input id="qkCod" placeholder="ex: GD-1234"></div>
-    </div>
-    <div class="field"><label>Descrição *</label><input id="qkDesc" placeholder="ex: Chave Yale"></div>
-    <div class="row">
-      <div class="field"><label>Tipo</label>
-        <select id="qkTipo"><option value="residencial">Residencial</option><option value="automotivo">Automotivo</option></select></div>
-        <div class="field">
-    <label>Unidade de medida</label>
-    <select id="qkUnidade">
-      <option value="un">UN</option>
-      <option value="g">G</option>
-      <option value="kg">KG</option>
-      <option value="m">M</option>
-      <option value="l">L</option>
-      <option value="cx">CX</option>
-      <option value="pct">PCT</option>
-      <option value="sv">SV</option>
-    </select>
-  </div>
-
-      <div class="field"><label>Preço venda (R$)</label><input id="qkPreco" type="text" inputmode="decimal" placeholder="0,00" oninput="moedaInput(this)" onblur="moedaBlur(this)"></div>
-    </div>
-    <div class="field"><label>Estoque inicial</label><input id="qkEstoque" type="number" value="0"></div>
-  `,
-          `
-    <button class="btn btn-sec" onclick="closeModal2()">Cancelar</button>
-    <button class="btn" id="qkSaveBtn" onclick="chaveRapidaSalvar('${contexto}')">Salvar chave</button>
-  `,
-        )
-        setTimeout(() => $("qkCod")?.focus(), 100)
-      }
-      async function chaveRapidaSalvar(contexto) {
-        const codigo = $("qkCod").value.trim()
-        const descricao = $("qkDesc").value.trim()
-        // Código é OPCIONAL (mesma regra do cadastro completo em chaveSalvar):
-        // produto sem código é válido, o descritivo/Nome é o obrigatório. Aceitar
-        // produtos sem código não pode causar problema.
-        if (!descricao) {
-          toast("O Nome (descrição) é obrigatório", "err")
-          return
-        }
-        const dados = {
-          fabricante_id: parseInt($("qkFab").value),
-          codigo,
-          descricao,
-          tipo: $("qkTipo").value,
-          unidade_medida: $("qkUnidade").value,
-          preco_venda: parseMoeda($("qkPreco").value),
-          preco_custo: 0,
-          estoque_min: 0,
-          estoque: parseInt($("qkEstoque").value || 0),
-          ativo: true,
-        }
-        const btn = $("qkSaveBtn")
-        btn.disabled = true
-        btn.innerHTML = '<span class="spinner"></span> Salvando...'
-        try {
-          const { data, error } = await sb
-            .from("chaves")
-            .insert(dados)
-            .select()
-            .single()
-          if (error) throw error
-          if (dados.estoque > 0) {
-            // if(error) throw: sem checar, a movimentacao de estoque inicial
-            // poderia falhar em silencio e o produto nasceria com estoque 0.
-            const { error: movErr } = await sb.from("movimentacoes").insert({
-              chave_id: data.id,
-              tipo: "entrada",
-              quantidade: dados.estoque,
-              motivo: "Estoque inicial",
-              funcionario_id: SESSAO.id,
-            })
-            if (movErr) throw movErr
-          }
-          await carregarChaves()
-          closeModal2()
-          toast("Chave cadastrada")
-          // adiciona a chave nova como item na OS
-          if (contexto === "os") {
-            OS_ITENS.push({
-              chave_id: data.id,
-              descricao: `${descChave(data)} (${data.unidade_medida?.toUpperCase() || "UN"})`,
-              quantidade: 1,
-              preco_unit: Number(data.preco_venda),
-              unidade_medida: data.unidade_medida || "un",
-            })
-            renderOsItens()
-            osRecalc()
-          }
-        } catch (e) {
-          console.error(e)
-          toast("Erro ao salvar chave", "err")
-          btn.disabled = false
-          btn.textContent = "Salvar chave"
         }
       }
 
@@ -4434,7 +4330,7 @@ compreendeu e concorda integralmente com este Termo.</pre
           dashboard: pageDashboard,
           pdv: pagePDV,
           servicos: pageServicos,
-          chaves: pageChaves,
+          produtos: renderizarPaginaProdutos,
           equivalencias: pageEquivalencias,
           fabricantes: pageFabricantes,
           categorias: pageCategorias,
@@ -4705,13 +4601,12 @@ compreendeu e concorda integralmente com este Termo.</pre
           return
         }
         $("tipoList").innerHTML = `<table>
-    <thead><tr><th>Ícone</th><th>Tipo</th><th>Chave</th><th></th></tr></thead>
+    <thead><tr><th>Ícone</th><th>Tipo</th><th></th></tr></thead>
     <tbody>${lista
       .map(
         (t) => `<tr>
       <td style="font-size:18px">${esc(t.icone || "📦")}</td>
       <td><strong>${esc(t.rotulo)}</strong></td>
-      <td>${esc(t.chave)}</td>
       <td class="actions">
         <button class="btn btn-sec btn-sm" onclick='tipoForm(${JSON.stringify(t).replace(/'/g, "&#39;")})'>Editar</button>
         <button class="btn btn-danger btn-sm" onclick="tipoExcluir(${t.id})">Excluir</button>
@@ -4905,17 +4800,17 @@ compreendeu e concorda integralmente com este Termo.</pre
         }
       }
 
-      async function carregarChaves() {
+      async function carregarProdutos() {
         function consultar() {
-          return sb.from("chaves").select("*").eq("ativo", true).order("codigo")
+          return sb.from("produtos").select("*").eq("ativo", true).order("codigo")
         }
         function aplicar(dados) {
-          CACHE.chaves = dados || []
+          CACHE.produtos = dados || []
         }
-        await lerComEspelho(consultar, "chaves", aplicar)
-        return CACHE.chaves
+        await lerComEspelho(consultar, "produtos", aplicar)
+        return CACHE.produtos
       }
-      // Fotos dos produtos SOB DEMANDA, em lote e com cache — nunca vêm no carregarChaves
+      // Fotos dos produtos SOB DEMANDA, em lote e com cache — nunca vêm na função que carrega os produtos
       // (a listagem seria pesada). CACHE.imagens[id] = dataURL | null (buscado, sem foto).
       async function carregarImagensProdutos(ids) {
         const faltam = [...new Set(ids)].filter(
@@ -5211,7 +5106,7 @@ compreendeu e concorda integralmente com este Termo.</pre
           await Promise.all([
             carregarServicos(),
             carregarTransacoes(),
-            carregarChaves(),
+            carregarProdutos(),
             carregarFabricantes(),
             carregarCategorias().catch(() => {}),
             carregarTipos().catch(() => {}),
@@ -5290,7 +5185,7 @@ compreendeu e concorda integralmente com este Termo.</pre
         // Limite configuravel das listas do Painel. Guardado no proprio
         // navegador; padrao 8.
         const limiteInicial = limitePainel()
-        const estoqueBaixo = CACHE.chaves
+        const estoqueBaixo = CACHE.produtos
           .filter(
             (k) =>
               k.estoque_min > 0 &&
@@ -5310,19 +5205,20 @@ compreendeu e concorda integralmente com este Termo.</pre
           )
           .forEach((s) => {
             ;(s.itens || []).forEach((it) => {
-              if (!it.chave_id) return
-              vendas[it.chave_id] = vendas[it.chave_id] || {
+              if (!it.id_produto) return
+              vendas[it.id_produto] = vendas[it.id_produto] || {
                 qtd: 0,
                 receita: 0,
               }
-              vendas[it.chave_id].qtd += it.quantidade
-              vendas[it.chave_id].receita += it.total
+              vendas[it.id_produto].qtd += it.quantidade
+              vendas[it.id_produto].receita += it.total
             })
           })
+        // @erro: comparação com == ao invés de ===
         const maisVendidas = Object.entries(vendas)
-          .map(([cid, v]) => {
-            const k = CACHE.chaves.find((x) => x.id == cid)
-            return k ? { ...k, ...v } : null
+          .map(([idProduto, v]) => {
+            const produto = CACHE.produtos.find((item_produto) => Number(item_produto.id) === Number(idProduto))
+            return produto ? { ...produto, ...v } : null
           })
           .filter(Boolean)
           .sort((a, b) => b.qtd - a.qtd)
@@ -5365,12 +5261,12 @@ compreendeu e concorda integralmente com este Termo.</pre
                 .map(
                   (k) => `
           <div style="padding:9px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between">
-            <div><strong>${esc(rotuloChave(k))}</strong> · ${esc(nomeFabricante(k.fabricante_id))}<div style="font-size:12px;color:var(--muted)">${esc(k.descricao)}</div></div>
+            <div><strong>${esc(obterRotuloDoProduto(k))}</strong> · ${esc(nomeFabricante(k.fabricante_id))}<div style="font-size:12px;color:var(--muted)">${esc(k.descricao)}</div></div>
             <span class="badge b-baixo">${k.estoque}/${k.estoque_min}</span>
           </div>`,
                 )
                 .join("")
-            : '<p style="color:var(--muted);text-align:center;padding:16px">Nenhuma chave com estoque baixo.</p>'
+            : '<p style="color:var(--muted);text-align:center;padding:16px">Nenhum produto com estoque baixo.</p>'
         }
         </div>
       </div>
@@ -5383,7 +5279,7 @@ compreendeu e concorda integralmente com este Termo.</pre
                 .map(
                   (k) => `
           <div style="padding:9px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between">
-            <div><strong>${esc(rotuloChave(k))}</strong> · ${esc(nomeFabricante(k.fabricante_id))}<div style="font-size:12px;color:var(--muted)">${esc(k.descricao)}</div></div>
+            <div><strong>${esc(obterRotuloDoProduto(k))}</strong> · ${esc(nomeFabricante(k.fabricante_id))}<div style="font-size:12px;color:var(--muted)">${esc(k.descricao)}</div></div>
             <div style="text-align:right"><strong>${k.qtd}</strong>${mostrarFaturamento ? `<div style="font-size:12px;color:var(--muted)">${fmt(k.receita)}</div>` : ""}</div>
           </div>`,
                 )
@@ -5559,15 +5455,15 @@ compreendeu e concorda integralmente com este Termo.</pre
         }
       }
       async function fabExcluir(id) {
-        // verifica se há chaves usando esse fabricante
+        // verifica se há produtos usando esse fabricante
         try {
           const { count } = await sb
-            .from("chaves")
+            .from("produtos")
             .select("id", { count: "exact", head: true })
             .eq("fabricante_id", id)
           if (count > 0) {
             toast(
-              `Não dá pra excluir: ${count} chave(s) usam esse fabricante`,
+              `Não dá pra excluir: ${count} produto(s) usam esse fabricante`,
               "err",
             )
             return
@@ -5589,7 +5485,7 @@ compreendeu e concorda integralmente com este Termo.</pre
       }
 
       // ============================================================
-      // PÁGINA: CHAVES
+      // PÁGINA: EQUIVALÊNCIA DE CHAVES
       // ============================================================
       async function pageEquivalencias() {
         $("main").innerHTML = `
@@ -5781,34 +5677,34 @@ compreendeu e concorda integralmente com este Termo.</pre
         }
       }
       // ============================================================
-      // PÁGINA: CHAVES
+      // PÁGINA: PRODUTOS
       // ============================================================
-      async function pageChaves() {
+      async function renderizarPaginaProdutos() {
         $("main").innerHTML = `
     <div class="page-head">
       <div class="head-left">
         <button class="btn-back" onclick="navigate('dashboard')" title="Voltar ao Painel">← Painel</button>
         <h2>Produtos</h2>
       </div>
-      <button class="btn btn-laranja" onclick="chaveForm()">+ Novo Produto</button></div>
+      <button class="btn btn-laranja" onclick="mostrarFormularioParaCriarProduto()">+ Novo Produto</button></div>
     <div class="toolbar">
-      <input id="chBusca" placeholder="Buscar código ou descrição..." oninput="renderChaves()">
-      <select id="chFiltroTipoProduto" onchange="renderChaves()">
+      <input id="chBusca" placeholder="Buscar código ou descrição..." oninput="renderizarProdutos()">
+      <select id="chFiltroTipoProduto" onchange="renderizarProdutos()">
         <option value="">Todos os produtos</option>
       </select>
-      <select id="chFiltroFab" onchange="renderChaves()"><option value="">Todos fabricantes</option></select>
-      <select id="chFiltroTipo" onchange="renderChaves()">
+      <select id="chFiltroFab" onchange="renderizarProdutos()"><option value="">Todos fabricantes</option></select>
+      <select id="chFiltroTipo" onchange="renderizarProdutos()">
         <option value="">Res./Auto.</option>
         <option value="residencial">Residencial</option>
         <option value="automotivo">Automotivo</option>
       </select>
       <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;white-space:nowrap">
-        <input type="checkbox" id="chFiltroBaixo" onchange="renderChaves()" style="width:auto"> Só estoque baixo</label>
+        <input type="checkbox" id="chFiltroBaixo" onchange="renderizarProdutos()" style="width:auto"> Só estoque baixo</label>
     </div>
     <div id="chList"><div class="loading-inline"><span class="spinner"></span>Carregando...</div></div>`
         try {
           await carregarFabricantes()
-          await carregarChaves()
+          await carregarProdutos()
           try {
             await carregarCategorias()
           } catch (_) {}
@@ -5830,7 +5726,7 @@ compreendeu e concorda integralmente com este Termo.</pre
                   `<option value="${esc(t.chave)}">${t.icone ? t.icone + " " : ""}${esc(t.rotulo)}</option>`,
               )
               .join("")
-          renderChaves()
+          renderizarProdutos()
         } catch (e) {
           console.error(e)
           $("chList").innerHTML =
@@ -5843,28 +5739,29 @@ compreendeu e concorda integralmente com este Termo.</pre
       }
       // Rótulo curto do produto: o código de barras é opcional (#23 — o código é do
       // leitor, o descritivo vai no Nome), então cai no nome quando não há código.
-      function rotuloChave(k) {
+      function obterRotuloDoProduto(k) {
         return k && k.codigo ? k.codigo : (k && k.descricao) || "—"
       }
       // Descrição composta (fabricante + código + nome) usada em lançamentos/itens;
       // omite o código quando vazio (evita "Fab  — Nome" com traço solto).
-      function descChave(k) {
+      function obterDescricaoDoProduto(k) {
         return `${nomeFabricante(k.fabricante_id)}${k.codigo ? " " + k.codigo : ""} — ${k.descricao}`
       }
-      function renderChaves() {
+      function renderizarProdutos() {
         const busca = ($("chBusca")?.value || "").toLowerCase().trim()
         const filtroFab = $("chFiltroFab")?.value || ""
         const filtroTipo = $("chFiltroTipo")?.value || ""
         const filtroTipoProd = $("chFiltroTipoProduto")?.value || ""
         const soEstoqueBaixo = $("chFiltroBaixo")?.checked || false
 
-        let lista = CACHE.chaves.slice()
+        let lista = CACHE.produtos.slice()
         if (busca)
           lista = lista.filter(
             (k) =>
               (k.codigo || "").toLowerCase().includes(busca) ||
               (k.descricao || "").toLowerCase().includes(busca) ||
-              nomeFabricante(k.fabricante_id).toLowerCase().includes(busca),
+              nomeFabricante(k.fabricante_id).toLowerCase().includes(busca) ||
+              (k?.locacao ?? "").toLowerCase().includes(busca),
           )
         if (filtroFab) lista = lista.filter((k) => k.fabricante_id == filtroFab)
         if (filtroTipo) lista = lista.filter((k) => k.tipo === filtroTipo)
@@ -5885,7 +5782,7 @@ compreendeu e concorda integralmente com este Termo.</pre
           return
         }
         // Valor total do estoque (valuation): soma de quantidade em estoque × custo
-        // e × preço de venda dos produtos listados (CACHE.chaves já traz só os ativos).
+        // e × preço de venda dos produtos listados (CACHE.produtos já traz só os ativos).
         const valorCusto = lista.reduce((soma, k) => {
           // Serviço (mão de obra) não tem estoque físico: fica fora da valuation
           // mesmo que venha com números "sujos" no cadastro.
@@ -5908,26 +5805,66 @@ compreendeu e concorda integralmente com este Termo.</pre
         $("chList").innerHTML =
           resumoEstoque +
           `<table>
-    <thead><tr><th>Tipo</th><th>Código</th><th>Fabricante</th><th>Descrição</th><th>Res./Auto.</th><th>Categoria</th><th>Preço</th><th>Unidade</th><th>Estoque</th><th></th></tr></thead>
+    <thead>
+      <tr>
+        <th>
+          Tipo
+        </th>
+        <th>
+          Código
+        </th>
+        <th>
+          Fabricante
+        </th>
+        <th>
+          Descrição
+        </th>
+        <th>
+          Locação
+        </th>
+        <th>
+          Res./Auto.
+        </th>
+        <th>
+          Categoria
+        </th>
+        <th>
+          Preço
+        </th>
+        <th>
+          Unidade
+        </th>
+        <th>
+          Estoque
+        </th>
+        <th>
+        </th>
+      </tr>
+    </thead>
     <tbody>${lista
       .map((k) => {
+        // @erro: múltiplas instâncias de variáveis com nomes não descritivos e semânticos
         const baixo = k.estoque_min > 0 && k.estoque <= k.estoque_min
         const tp = k.tipo_produto || "chave"
         return `<tr>
-        <td><span title="${esc(rotuloTipoProduto(tp))}">${iconeTipoProduto(tp)} ${esc(rotuloTipoProduto(tp))}</span></td>
-        <td><img id="thumb-${k.id}" alt="" style="display:none;width:30px;height:30px;object-fit:cover;border-radius:5px;vertical-align:middle;margin-right:6px"><strong>${esc(rotuloChave(k))}</strong></td>
-        <td>${esc(nomeFabricante(k.fabricante_id))}</td>
-        <td>${esc(k.descricao)}</td>
-        <td><span class="badge b-${k.tipo}">${esc(k.tipo)}</span></td>
-        <td>${esc(k.categoria || "")}</td>
-        <td>${fmt(k.preco_venda)}</td>
-        <td>${(k.unidade_medida || "UN").toUpperCase()}</td>
-        <td>${baixo ? `<span class="badge b-baixo">${k.estoque}/${k.estoque_min}</span>` : k.estoque + (k.estoque_min ? " / min " + k.estoque_min : "")}</td>
-        <td class="actions">
-          <button class="btn btn-sec btn-sm" onclick='chaveForm(${JSON.stringify(k).replace(/'/g, "&#39;")})'>Editar</button>
-          <button class="btn btn-sec btn-sm" onclick="estoqueMovForm(${k.id})" title="Movimentar estoque">📦 Estoque</button>
-          <button class="btn btn-danger btn-sm" onclick="chaveExcluir(${k.id})">Excluir</button>
-        </td></tr>`
+          <td><span title="${esc(rotuloTipoProduto(tp))}">${iconeTipoProduto(tp)} ${esc(rotuloTipoProduto(tp))}</span></td>
+          <td><img id="thumb-${k.id}" alt="" style="display:none;width:30px;height:30px;object-fit:cover;border-radius:5px;vertical-align:middle;margin-right:6px"><strong>${esc(obterRotuloDoProduto(k))}</strong></td>
+          <td>${esc(nomeFabricante(k.fabricante_id))}</td>
+          <td>${esc(k.descricao)}</td>
+          <td>
+            ${esc(k?.locacao ?? "não identificada")}
+          </td>
+          <td><span class="badge b-${k.tipo}">${esc(k.tipo)}</span></td>
+          <td>${esc(k.categoria || "")}</td>
+          <td>${fmt(k.preco_venda)}</td>
+          <td>${(k.unidade_medida || "UN").toUpperCase()}</td>
+          <td>${baixo ? `<span class="badge b-baixo">${k.estoque}/${k.estoque_min}</span>` : k.estoque + (k.estoque_min ? " / min " + k.estoque_min : "")}</td>
+          <td class="actions">
+            <button class="btn btn-sec btn-sm" onclick='mostrarFormularioParaCriarProduto(${JSON.stringify(k).replace(/'/g, "&#39;")})'>Editar</button>
+            <button class="btn btn-sec btn-sm" onclick="estoqueMovForm(${k.id})" title="Movimentar estoque">📦 Estoque</button>
+            <button class="btn btn-danger btn-sm" onclick="excluirProduto(${k.id})">Excluir</button>
+          </td>
+        </tr>`
       })
       .join("")}</tbody></table>`
         applyTableLabels()
@@ -5944,8 +5881,8 @@ compreendeu e concorda integralmente com este Termo.</pre
         })
       }
       // Foto do produto: undefined = nao mexeu (nao grava); dataURL = nova foto; '' = remover.
-      let _chImagemPendente = undefined
-      function chavePreviewImg(input) {
+      let _imagemPendenteDoProduto = undefined
+      function renderizarPreviaDaImagem(input) {
         const file = input.files[0]
         if (!file) return
         if (file.size > 5 * 1024 * 1024) {
@@ -5974,10 +5911,10 @@ compreendeu e concorda integralmente com este Termo.</pre
             ctx.fillStyle = "#fff"
             ctx.fillRect(0, 0, w, h)
             ctx.drawImage(img, 0, 0, w, h)
-            _chImagemPendente = cv.toDataURL("image/jpeg", 0.8)
+            _imagemPendenteDoProduto = cv.toDataURL("image/jpeg", 0.8)
             const prev = $("chImgPreview")
             if (prev) {
-              prev.src = _chImagemPendente
+              prev.src = _imagemPendenteDoProduto
               prev.style.display = ""
             }
             const rm = $("chImgRemover")
@@ -5987,8 +5924,8 @@ compreendeu e concorda integralmente com este Termo.</pre
         }
         reader.readAsDataURL(file)
       }
-      function chaveRemoverImg() {
-        _chImagemPendente = ""
+      function removerImagemProduto() {
+        _imagemPendenteDoProduto = ""
         const prev = $("chImgPreview")
         if (prev) {
           prev.src = ""
@@ -5999,9 +5936,9 @@ compreendeu e concorda integralmente com este Termo.</pre
         const rm = $("chImgRemover")
         if (rm) rm.style.display = "none"
       }
-      function chaveForm(k, contexto) {
+      function mostrarFormularioParaCriarProduto(k, contexto) {
         const edit = !!(k && k.id)
-        _chImagemPendente = undefined
+        _imagemPendenteDoProduto = undefined
         k = k || {
           tipo: "residencial",
           tipo_produto: "chave",
@@ -6022,7 +5959,7 @@ compreendeu e concorda integralmente com este Termo.</pre
       <div class="field">
         <label>Tipo de produto *</label>
         <div style="display:flex;gap:8px">
-          <select id="chTipoProduto" style="flex:1" onchange="chaveAtualizarCamposServico()">
+          <select id="chTipoProduto" style="flex:1" onchange="atualizarTipoProdutoAoCriarProduto()">
             ${opcoesTipoProduto(k.tipo_produto)}
           </select>
           <button class="btn btn-sec" type="button" onclick="tipoCriarRapido()" title="Criar novo tipo de produto" style="padding:0 14px">+</button>
@@ -6060,6 +5997,12 @@ compreendeu e concorda integralmente com este Termo.</pre
       <input id="chDesc" value="${esc(k.descricao || "")}" placeholder="ex: Chave tetra Yale">
     </div>
     <div class="field">
+      <label>
+        Locação
+      </label>
+      <input id="criar_produto_campo_locacao" value="${esc(k?.locacao || "")}" placeholder="exemplo: prateleira B43">
+    </div>
+    <div class="field">
       <label>Tipo (residencial/automotivo)</label>
       <select id="chTipo">
         <option value="residencial" ${k.tipo === "residencial" ? "selected" : ""}>Residencial</option>
@@ -6086,15 +6029,15 @@ compreendeu e concorda integralmente com este Termo.</pre
     </div>
     <div class="field">
       <label>Foto do produto</label>
-      <input type="file" id="chImgInput" accept="image/*" onchange="chavePreviewImg(this)">
+      <input type="file" id="chImgInput" accept="image/*" onchange="renderizarPreviaDaImagem(this)">
       <img id="chImgPreview" alt="" style="display:none;max-width:120px;max-height:120px;margin-top:8px;border-radius:8px;border:1px solid var(--border)">
-      <button type="button" class="btn btn-sec btn-sm" id="chImgRemover" style="display:none;margin-top:6px" onclick="chaveRemoverImg()">Remover foto</button>
+      <button type="button" class="btn btn-sec btn-sm" id="chImgRemover" style="display:none;margin-top:6px" onclick="removerImagemProduto()">Remover foto</button>
     </div>
     ${!edit ? '<div class="field" id="chCampoEstoqueInicial"><label>Estoque inicial</label><input id="chEstoque" type="number" value="0"></div>' : ""}
   `,
           `
     <button class="btn btn-sec" onclick="${contexto ? "closeModal2()" : "closeModal()"}">Cancelar</button>
-    <button class="btn" id="chSaveBtn" onclick="chaveSalvar(${k.id || 0}, ${contexto ? `'${contexto}'` : "null"})">Salvar</button>
+    <button class="btn" id="chSaveBtn" onclick="salvarProduto(${k.id || 0}, ${contexto ? `'${contexto}'` : "null"})">Salvar</button>
   `,
         )
         // ao editar, carrega a foto existente (sob demanda — nao vem na listagem)
@@ -6120,11 +6063,11 @@ compreendeu e concorda integralmente com este Termo.</pre
             .catch(() => {})
         }
         // aplica o estado inicial: se o tipo for servico, esconde custo e estoque
-        chaveAtualizarCamposServico()
+        atualizarTipoProdutoAoCriarProduto()
       }
       // Serviço não tem custo de estoque nem quantidade: esconde os campos
       // de custo e estoque quando o tipo de produto selecionado for 'servico'.
-      function chaveAtualizarCamposServico() {
+      function atualizarTipoProdutoAoCriarProduto() {
         const ehServico =
           $("chTipoProduto") && $("chTipoProduto").value === "servico"
         ;["chCampoCusto", "chCampoEstMin", "chCampoEstoqueInicial"].forEach(
@@ -6134,7 +6077,7 @@ compreendeu e concorda integralmente com este Termo.</pre
           },
         )
       }
-      async function chaveSalvar(id, contexto) {
+      async function salvarProduto(id, contexto) {
         const dados = {
           fabricante_id: parseInt($("chFab").value),
           codigo: $("chCodigo").value.trim(),
@@ -6147,6 +6090,7 @@ compreendeu e concorda integralmente com este Termo.</pre
           preco_custo: parseFloat($("chPrecoC").value || 0),
           estoque_min: parseInt($("chEstMin").value || 0),
           ativo: true,
+          locacao: $("criar_produto_campo_locacao").value.trim(),
         }
         // Serviço não tem custo de estoque nem quantidade: grava 0 nesses campos.
         const ehServico = dados.tipo_produto === "servico"
@@ -6166,9 +6110,9 @@ compreendeu e concorda integralmente com este Termo.</pre
           let novo = null
           if (id) {
             function executarUpdateOnline() {
-              return sb.from("chaves").update(dados).eq("id", id)
+              return sb.from("produtos").update(dados).eq("id", id)
             }
-            const { error } = await escrever("update", "chaves", dados, {
+            const { error } = await escrever("update", "produtos", dados, {
               id: id,
               executarOnline: executarUpdateOnline,
             })
@@ -6177,18 +6121,18 @@ compreendeu e concorda integralmente com este Termo.</pre
             // O reflexo otimista já atualizou a linha no CACHE.
             if (estadoConexao.estaOffline) {
               closeModal()
-              renderChaves()
+              renderizarProdutos()
               return
             }
             toast("Produto atualizado")
           } else {
             dados.estoque = ehServico ? 0 : parseInt($("chEstoque").value || 0)
             function executarInsertOnline() {
-              return sb.from("chaves").insert(dados).select().single()
+              return sb.from("produtos").insert(dados).select().single()
             }
             const { data, error } = await escrever(
               "insert",
-              "chaves",
+              "produtos",
               dados,
               { executarOnline: executarInsertOnline },
             )
@@ -6202,15 +6146,15 @@ compreendeu e concorda integralmente com este Termo.</pre
               if (contexto === "os" && novo) {
                 closeModal2()
                 OS_ITENS.push({
-                  chave_id: novo.id,
-                  descricao: descChave(novo),
+                  id_produto: novo.id,
+                  descricao: obterDescricaoDoProduto(novo),
                   quantidade: 1,
                   preco_unit: Number(novo.preco_venda),
                 })
                 renderOsItens()
                 osRecalc()
               } else {
-                renderChaves()
+                renderizarProdutos()
               }
               return
             }
@@ -6219,7 +6163,7 @@ compreendeu e concorda integralmente com este Termo.</pre
               // if(error) throw: sem checar, o estoque inicial poderia falhar
               // em silencio e o produto nasceria com estoque 0 (fonte unica).
               const { error: movErr } = await sb.from("movimentacoes").insert({
-                chave_id: data.id,
+                id_produto: data.id,
                 tipo: "entrada",
                 quantidade: dados.estoque,
                 motivo: "Estoque inicial",
@@ -6231,27 +6175,27 @@ compreendeu e concorda integralmente com este Termo.</pre
           }
           // salva/remove a foto do produto (uma por produto: apaga a atual e insere a nova, se houver)
           const prodId = id || (novo && novo.id)
-          if (prodId && _chImagemPendente !== undefined) {
+          if (prodId && _imagemPendenteDoProduto !== undefined) {
             await sb
               .from("imagens")
               .delete()
               .eq("tipo", "produto")
               .eq("referencia_id", prodId)
-            if (_chImagemPendente) {
+            if (_imagemPendenteDoProduto) {
               await sb.from("imagens").insert({
                 tipo: "produto",
                 referencia_id: prodId,
-                imagem: _chImagemPendente,
+                imagem: _imagemPendenteDoProduto,
               })
             }
           }
-          await carregarChaves()
+          await carregarProdutos()
           // Se veio de uma OS, fecha o modal empilhado e adiciona o produto novo como item
           if (contexto === "os" && novo) {
             closeModal2()
             OS_ITENS.push({
-              chave_id: novo.id,
-              descricao: descChave(novo),
+              id_produto: novo.id,
+              descricao: obterDescricaoDoProduto(novo),
               quantidade: 1,
               preco_unit: Number(novo.preco_venda),
             })
@@ -6259,7 +6203,7 @@ compreendeu e concorda integralmente com este Termo.</pre
             osRecalc()
           } else {
             closeModal()
-            renderChaves()
+            renderizarProdutos()
           }
         } catch (e) {
           console.error(e)
@@ -6268,18 +6212,18 @@ compreendeu e concorda integralmente com este Termo.</pre
           btn.textContent = "Salvar"
         }
       }
-      async function chaveExcluir(id) {
-        if (!confirm("Excluir esta chave do catálogo?")) return
+      async function excluirProduto(id) {
+        if (!confirm("Excluir este produto?")) return
         try {
           // soft delete - mantém histórico
           const { error } = await sb
-            .from("chaves")
+            .from("produtos")
             .update({ ativo: false })
             .eq("id", id)
           if (error) throw error
-          toast("Chave excluída")
-          await carregarChaves()
-          renderChaves()
+          toast("Produto excluído")
+          await carregarProdutos()
+          renderizarProdutos()
         } catch (e) {
           console.error(e)
           toast("Erro ao excluir", "err")
@@ -6698,7 +6642,7 @@ compreendeu e concorda integralmente com este Termo.</pre
           `<div class="loading-inline"><span class="spinner"></span>Carregando...</div>`
         try {
           await Promise.all([
-            carregarChaves(),
+            carregarProdutos(),
             carregarClientes(),
             carregarCategorias().catch(() => {}),
             carregarTipos().catch(() => {}),
@@ -6716,12 +6660,12 @@ compreendeu e concorda integralmente com este Termo.</pre
         <button class="btn-back" onclick="pdvSair()" title="Voltar ao Painel">← Painel</button>
         <h2>🛒 Venda Rápida</h2>
       </div>
-      <div style="color:var(--muted);font-size:13px">Digite ou bipe o código da chave e pressione Enter</div>
+      <div style="color:var(--muted);font-size:13px">Digite ou bipe o código do produto e pressione Enter</div>
     </div>
     <div class="pdv-wrap">
       <div>
         <div class="pdv-scan">
-          <label>Código da chave</label>
+          <label>Código do produto</label>
           <div style="display:flex;gap:8px;align-items:stretch">
             <input id="pdvCode" placeholder="Digite ou bipe o código aqui..." autocomplete="off"
                    style="flex:1"
@@ -6935,11 +6879,12 @@ compreendeu e concorda integralmente com este Termo.</pre
         // assim o item de código vazio não fica escondido por um item homônimo
         // que tenha código preenchido.
         const termNorm = normalizarBusca(term)
-        const matches = CACHE.chaves.filter(
+        const matches = CACHE.produtos.filter(
           (k) =>
             normalizarBusca(k.codigo || "").includes(termNorm) ||
             normalizarBusca(k.descricao || "").includes(termNorm) ||
-            normalizarBusca(nomeFabricante(k.fabricante_id)).includes(termNorm),
+            normalizarBusca(nomeFabricante(k.fabricante_id)).includes(termNorm) ||
+            normalizarBusca(k?.locacao ?? "").includes(termNorm),
         )
         if (!matches.length) {
           toast("Código não encontrado: " + term, "err")
@@ -6952,16 +6897,33 @@ compreendeu e concorda integralmente com este Termo.</pre
           input.focus()
         } else {
           openModal(
-            "Selecione a chave",
+            "Selecione o produto",
             `
-      <p style="color:var(--muted);margin-bottom:12px">${matches.length} chaves encontradas para "${esc(term)}":</p>
+      <p style="color:var(--muted);margin-bottom:12px">${matches.length} produtos encontrados para "${esc(term)}":</p>
       ${matches
         .map(
           (
             k,
           ) => `<div onclick='pdvPickFromModal(${k.id})' style="padding:12px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center">
-        <div><strong>${esc(rotuloChave(k))}</strong> · ${esc(nomeFabricante(k.fabricante_id))}<div style="font-size:12px;color:var(--muted)">${esc(k.descricao)}</div></div>
-        <div style="text-align:right"><strong>${fmt(k.preco_venda)}</strong><div style="font-size:11px;color:var(--muted)">estoque: ${k.estoque}</div></div>
+        <div><strong>${esc(obterRotuloDoProduto(k))}</strong> · ${esc(nomeFabricante(k.fabricante_id))}<div style="font-size:12px;color:var(--muted)">${esc(k.descricao)}</div></div>
+        <div style="text-align:right">
+          <strong>
+            ${fmt(k.preco_venda)}
+          </strong>
+          ${
+            (k.tipo_produto || "chave") === "servico" ?
+            "" :
+            `<div style="font-size:11px;color:var(--muted)">
+              estoque: ${k.estoque}${
+                (k?.["tipo_produto"] ?? "chave") !== "servico" &&
+                (k?.locacao ?? null) !== null &&
+                (k?.locacao ?? null) !== "" ?
+                (" - " + "localizado em:" + " " + (k?.locacao ?? "não identificado")) :
+                ""
+              }
+            </div>`
+          }
+        </div>
       </div>`,
         )
         .join("")}`,
@@ -6969,8 +6931,8 @@ compreendeu e concorda integralmente com este Termo.</pre
           )
         }
       }
-      function pdvPickFromModal(chaveId) {
-        const k = CACHE.chaves.find((x) => x.id == chaveId)
+      function pdvPickFromModal(idProduto) {
+        const k = CACHE.produtos.find((x) => x.id == idProduto)
         if (k) pdvAddItem(k)
         closeModal()
         const input = $("pdvCode")
@@ -6980,17 +6942,19 @@ compreendeu e concorda integralmente com este Termo.</pre
         }
       }
       function pdvAddItem(k) {
-        const existing = PDV_CART.find((it) => it.chave_id === k.id)
+        const existing = PDV_CART.find((it) => Number(it.id_produto) === Number(k.id))
         if (existing) {
           existing.quantidade++
         } else {
           PDV_CART.push({
-            chave_id: k.id,
+            id_produto: k.id,
             codigo: k.codigo,
-            descricao: descChave(k),
+            descricao: obterDescricaoDoProduto(k),
+            tipo_produto: k?.["tipo_produto"] ?? "chave",
             quantidade: 1,
             preco_unit: Number(k.preco_venda),
             estoque: k.estoque,
+            locacao: k?.locacao ?? "não identificada",
             unidade_medida: k.unidade_medida || "un",
             imagem: CACHE.imagens[k.id] || null,
           })
@@ -6999,7 +6963,7 @@ compreendeu e concorda integralmente com este Termo.</pre
         // foto do item sob demanda (mostra no carrinho quando chegar)
         if (CACHE.imagens[k.id] === undefined) {
           carregarImagensProdutos([k.id]).then(() => {
-            const it = PDV_CART.find((x) => x.chave_id === k.id)
+            const it = PDV_CART.find((x) => Number(x.id_produto) === Number(k.id))
             if (it) {
               it.imagem = CACHE.imagens[k.id]
               renderPdvCart()
@@ -7053,7 +7017,27 @@ compreendeu e concorda integralmente com este Termo.</pre
         <div class="pinfo">
           ${it.imagem ? `<img src="${it.imagem}" alt="" style="width:34px;height:34px;object-fit:cover;border-radius:5px;float:left;margin-right:8px">` : ""}
           <div class="pname">${esc(it.descricao)}</div>
-          <div class="pcode">${it.codigo ? `Cód: ${esc(it.codigo)} · ` : ""}${semEstoque ? `<span style="color:var(--danger)">⚠️ estoque: ${it.estoque}</span>` : `estoque: ${it.estoque}`}</div>
+          <div class="pcode">
+            ${
+              it.codigo ?
+              `Cód: ${esc(it.codigo)} · ` :
+              ""
+            }${
+              semEstoque ?
+              `<span style="color:var(--danger)">
+                estoque: ${it.estoque}
+              </span>` :
+              `estoque: ${it.estoque}`
+            }${
+              (it?.locacao ?? null) !== null && (it?.locacao ?? null) !== "" ?
+              `<span class="locacao">
+                locação: ${
+                  it?.locacao ?? "não identificada"
+                }
+              </span>` :
+              ""
+            }
+          </div>
         </div>
         <div class="pdv-qty">
           <button onclick="pdvSetQty(${i}, ${it.quantidade - 1})">−</button>
@@ -7162,7 +7146,7 @@ compreendeu e concorda integralmente com este Termo.</pre
         btn.innerHTML = '<span class="spinner"></span> Finalizando...'
 
         const itens = PDV_CART.map((it) => ({
-          chave_id: it.chave_id,
+          id_produto: it.id_produto,
           descricao: it.descricao,
           quantidade: it.quantidade,
           unidade_medida: it.unidade_medida || "un",
@@ -7258,7 +7242,7 @@ compreendeu e concorda integralmente com este Termo.</pre
             os = { id: rpc.data }
             // Cache otimista do estoque (o trigger já baixou no banco).
             for (const it of itens) {
-              const k = CACHE.chaves.find((x) => x.id == it.chave_id)
+              const k = CACHE.produtos.find((x) => Number(x.id) == Number(it.id_produto))
               // Serviço (mão de obra) não tem estoque: não ajusta o cache.
               if (k && k.tipo_produto === "servico") continue
               if (k) k.estoque = k.estoque - it.quantidade
@@ -7295,14 +7279,14 @@ compreendeu e concorda integralmente com este Termo.</pre
 
             // 2. registra as movimentações de saída (fonte única do estoque).
             for (const it of itens) {
-              const k = CACHE.chaves.find((x) => x.id == it.chave_id)
+              const k = CACHE.produtos.find((x) => Number(x.id) == Number(it.id_produto))
               // Serviço (mão de obra) não movimenta estoque: pula a baixa.
               if (k && k.tipo_produto === "servico") continue
               if (k) {
                 const { error: movErr } = await sb
                   .from("movimentacoes")
                   .insert({
-                    chave_id: k.id,
+                    id_produto: k.id,
                     tipo: "saida",
                     quantidade: it.quantidade,
                     motivo: `Venda Rápida OS #${os.id}`,
@@ -7468,7 +7452,7 @@ compreendeu e concorda integralmente com este Termo.</pre
           await Promise.all([
             carregarServicos(),
             carregarClientes(),
-            carregarChaves(),
+            carregarProdutos(),
             carregarFuncionariosCache(),
           ])
           renderServicos()
@@ -7605,7 +7589,7 @@ compreendeu e concorda integralmente com este Termo.</pre
     <h4 style="margin:16px 0 10px;color:var(--azul)">Itens da OS</h4>
     <div id="osItens"></div>
     <button class="btn btn-sec btn-sm" type="button" onclick="osItemAdd()">+ Adicionar item</button>
-    <button class="btn btn-sec btn-sm" type="button" onclick="chaveForm(null,'os')">+ Nova chave/produto</button>
+    <button class="btn btn-sec btn-sm" type="button" onclick="mostrarFormularioParaCriarProduto(null,'os')">+ Novo produto</button>
     <div class="row-3" style="margin-top:16px">
       <div class="field"><label>Mão de obra (R$)</label><input id="osMaoObra" type="text" inputmode="decimal" value="${s.mao_de_obra ? fmtNum(s.mao_de_obra) : ""}" placeholder="0,00" oninput="moedaInput(this)" onblur="moedaBlur(this);osRecalc()"></div>
       <div class="field"><label>Status</label>
@@ -7718,7 +7702,7 @@ compreendeu e concorda integralmente com este Termo.</pre
       }
       function osItemAdd() {
         OS_ITENS.push({
-          chave_id: "",
+          id_produto: "",
           descricao: "",
           quantidade: 1,
           preco_unit: 0,
@@ -7731,8 +7715,8 @@ compreendeu e concorda integralmente com este Termo.</pre
         cont.innerHTML = OS_ITENS.length
           ? OS_ITENS.map((it, i) => {
               // Texto mostrado no campo de busca: produto escolhido ou vazio (item manual)
-              const k = it.chave_id
-                ? CACHE.chaves.find((x) => x.id == it.chave_id)
+              const k = it.id_produto
+                ? CACHE.produtos.find((x) => Number(x.id) === Number(it.id_produto))
                 : null
               const escolhido = k
                 ? `${k.codigo ? esc(k.codigo) + " · " : ""}${esc(nomeFabricante(k.fabricante_id))} · ${esc(k.descricao)}`
@@ -7759,12 +7743,12 @@ compreendeu e concorda integralmente com este Termo.</pre
           : '<div style="color:var(--muted);font-size:13px;padding:8px 0">Nenhum item ainda. Clique em "Adicionar item".</div>'
       }
 
-      // Filtra os produtos (chaves) conforme o texto digitado, mostrando a lista suspensa
+      // Filtra os produtos conforme o texto digitado, mostrando a lista suspensa
       function osItemFiltrar(i, termo) {
         const box = $("osItemResults" + i)
         if (!box) return
         const term = (termo || "").toLowerCase().trim()
-        let list = CACHE.chaves.slice()
+        let list = CACHE.produtos.slice()
         if (term) {
           list = list.filter(
             (k) =>
@@ -7772,7 +7756,8 @@ compreendeu e concorda integralmente com este Termo.</pre
               (k.descricao || "").toLowerCase().includes(term) ||
               (nomeFabricante(k.fabricante_id) || "")
                 .toLowerCase()
-                .includes(term),
+                .includes(term) ||
+              (k?.locacao ?? "").toLowerCase().includes(term),
           )
         }
         list = list.slice(0, 8)
@@ -7794,20 +7779,20 @@ compreendeu e concorda integralmente com este Termo.</pre
         box.classList.add("show")
       }
 
-      function osItemPick(i, chaveId) {
+      function osItemPick(i, idProduto) {
         const box = $("osItemResults" + i)
         if (box) box.classList.remove("show")
-        if (!chaveId) {
+        if (!idProduto) {
           // item manual: mantém quantidade, limpa vínculo
-          OS_ITENS[i].chave_id = ""
+          OS_ITENS[i].id_produto = ""
           renderOsItens()
           osRecalc()
           return
         }
-        const k = CACHE.chaves.find((x) => x.id == chaveId)
+        const k = CACHE.produtos.find((x) => x.id == idProduto)
         OS_ITENS[i] = {
-          chave_id: parseInt(chaveId),
-          descricao: descChave(k),
+          id_produto: parseInt(idProduto),
+          descricao: obterDescricaoDoProduto(k),
           quantidade: OS_ITENS[i].quantidade || 1,
           preco_unit: Number(k.preco_venda),
           unidade_medida: k.unidade_medida || "un",
@@ -7854,14 +7839,14 @@ compreendeu e concorda integralmente com este Termo.</pre
             return
           }
         }
-        const itens = OS_ITENS.filter((it) => it.descricao || it.chave_id).map(
-          (it) => ({
-            chave_id: it.chave_id || null,
-            descricao: it.descricao,
-            quantidade: it.quantidade,
-            unidade_medida: it.unidade_medida || "un",
-            preco_unit: it.preco_unit,
-            total: it.quantidade * it.preco_unit,
+        const itens = OS_ITENS.filter((item) => item.descricao || item?.["id_produto"] || null).map(
+          (item) => ({
+            id_produto: item?.["id_produto"] || null,
+            descricao: item.descricao,
+            quantidade: item.quantidade,
+            unidade_medida: item.unidade_medida || "un",
+            preco_unit: item.preco_unit,
+            total: item.quantidade * item.preco_unit,
           }),
         )
         const maoObra = parseMoeda($("osMaoObra").value || 0)
@@ -7981,8 +7966,8 @@ compreendeu e concorda integralmente com este Termo.</pre
             // Cache otimista do estoque (o trigger já ajustou no banco).
             if (status === "concluido" && !jaConcluida) {
               for (const it of itens) {
-                if (!it.chave_id) continue
-                const k = CACHE.chaves.find((x) => x.id == it.chave_id)
+                if (!it.id_produto) continue
+                const k = CACHE.produtos.find((x) => Number(x.id) == Number(it.id_produto))
                 // Serviço (mão de obra) não tem estoque: não ajusta o cache.
                 if (k && k.tipo_produto === "servico") continue
                 if (k) k.estoque = k.estoque - it.quantidade
@@ -8006,15 +7991,15 @@ compreendeu e concorda integralmente com este Termo.</pre
             // baixa estoque se a OS está concluída e ainda não baixou
             if (status === "concluido" && !jaConcluida) {
               for (const it of itens) {
-                if (!it.chave_id) continue
-                const k = CACHE.chaves.find((x) => x.id == it.chave_id)
+                if (!it.id_produto) continue
+                const k = CACHE.produtos.find((x) => Number(x.id) === Number(it.id_produto))
                 // Serviço (mão de obra) não movimenta estoque: pula a baixa.
                 if (k && k.tipo_produto === "servico") continue
                 if (k) {
                   const { error: movErr } = await sb
                     .from("movimentacoes")
                     .insert({
-                      chave_id: k.id,
+                      id_produto: k.id,
                       tipo: "saida",
                       quantidade: it.quantidade,
                       motivo: `OS #${osId}`,
@@ -8035,13 +8020,13 @@ compreendeu e concorda integralmente com este Termo.</pre
             if (status === "cancelado" && jaConcluida) {
               const { data: movsSaida } = await sb
                 .from("movimentacoes")
-                .select("chave_id,quantidade")
+                .select("id_produto,quantidade")
                 .eq("servico_id", osId)
                 .eq("tipo", "saida")
               for (const m of movsSaida || []) {
-                if (!m.chave_id) continue
+                if (!m.id_produto) continue
                 const { error: movErr } = await sb.from("movimentacoes").insert({
-                  chave_id: m.chave_id,
+                  id_produto: m.id_produto,
                   tipo: "entrada",
                   quantidade: m.quantidade,
                   motivo: `Estorno OS #${osId} (cancelada)`,
@@ -8049,7 +8034,7 @@ compreendeu e concorda integralmente com este Termo.</pre
                   funcionario_id: funcionarioId,
                 })
                 if (movErr) throw movErr
-                const k = CACHE.chaves.find((x) => x.id == m.chave_id)
+                const k = CACHE.produtos.find((x) => Number(x.id) === Number(m.id_produto))
                 if (k) k.estoque = k.estoque + m.quantidade
               }
             }
@@ -8082,7 +8067,7 @@ compreendeu e concorda integralmente com este Termo.</pre
           // difícil de espelhar com precisão (o estorno usa as movimentações
           // reais). Recarrega da fonte única para a UI ficar correta.
           if (status === "cancelado" && jaConcluida) {
-            await carregarChaves().catch(() => {})
+            await carregarProdutos().catch(() => {})
           }
 
           // fotos do serviço: insere as novas e apaga as marcadas para remover
@@ -8314,8 +8299,8 @@ compreendeu e concorda integralmente com este Termo.</pre
             // Cache otimista do estoque (o trigger já baixou no banco).
             if (!jaConcluida) {
               for (const it of s.itens || []) {
-                if (!it.chave_id) continue
-                const k = CACHE.chaves.find((x) => x.id == it.chave_id)
+                if (!it.id_produto) continue
+                const k = CACHE.produtos.find((x) => Number(x.id) === Number(it.id_produto))
                 if (k) k.estoque = k.estoque - it.quantidade
               }
             }
@@ -8344,13 +8329,13 @@ compreendeu e concorda integralmente com este Termo.</pre
                 .limit(1)
               if (!movs || !movs.length) {
                 for (const it of s.itens || []) {
-                  if (!it.chave_id) continue
-                  const k = CACHE.chaves.find((x) => x.id == it.chave_id)
+                  if (!it.id_produto) continue
+                  const k = CACHE.produtos.find((x) => Number(x.id) === Number(it.id_produto))
                   if (k) {
                     const { error: movErr } = await sb
                       .from("movimentacoes")
                       .insert({
-                        chave_id: k.id,
+                        id_produto: k.id,
                         tipo: "saida",
                         quantidade: it.quantidade,
                         motivo: `OS #${s.id}`,
@@ -8396,7 +8381,7 @@ compreendeu e concorda integralmente com este Termo.</pre
           toast("Baixa registrada — pagamento recebido")
           closeModal()
           await carregarServicos()
-          await carregarChaves().catch(() => {})
+          await carregarProdutos().catch(() => {})
           await carregarTransacoes().catch(() => {})
           renderServicos()
         } catch (e) {
@@ -8426,15 +8411,15 @@ compreendeu e concorda integralmente com este Termo.</pre
           // contradiz (devolve a peça ao estoque) e deixa registro. O trigger recalcula.
           const { data: movs } = await sb
             .from("movimentacoes")
-            .select("chave_id,quantidade")
+            .select("id_produto,quantidade")
             .eq("servico_id", id)
             .eq("tipo", "saida")
           for (const m of movs || []) {
-            if (!m.chave_id) continue
+            if (!m.id_produto) continue
             // if(error) throw: o estorno ao excluir nao pode falhar em silencio
             // (senao a peca nao volta ao estoque e a OS some do mesmo jeito).
             const { error: movErr } = await sb.from("movimentacoes").insert({
-              chave_id: m.chave_id,
+              id_produto: m.id_produto,
               tipo: "entrada",
               quantidade: m.quantidade,
               motivo: `Estorno OS #${id} (excluída)`,
@@ -8621,7 +8606,7 @@ compreendeu e concorda integralmente com este Termo.</pre
       </div>
     </div>
     <div class="toolbar">
-      <input id="estFiltroChave" placeholder="Buscar por código, nome..." autocomplete="off" oninput="renderEstoque()">
+      <input id="campoFiltroProduto" placeholder="Buscar por código, nome..." autocomplete="off" oninput="renderEstoque()">
       <button class="btn btn-sec" onclick="renderEstoque()">Filtrar</button>
       <button class="btn btn-laranja" onclick="estoqueMovEscolherProduto()" title="Registrar entrada, saída ou ajuste de estoque">📦 Registrar movimentação</button>
     </div>
@@ -8629,7 +8614,7 @@ compreendeu e concorda integralmente com este Termo.</pre
         try {
           await Promise.all([
             carregarMovimentacoes(),
-            carregarChaves(),
+            carregarProdutos(),
             carregarFuncionariosCache(),
           ])
           renderEstoque()
@@ -8639,26 +8624,26 @@ compreendeu e concorda integralmente com este Termo.</pre
             '<div class="empty"><span class="icon">⚠️</span>Erro ao carregar. Verifique sua conexão.</div>'
         }
       }
-      function nomeChave(id) {
-        const k = CACHE.chaves.find((x) => x.id == id)
+      function obterNomeDoProduto(id) {
+        const k = CACHE.produtos.find((x) => x.id == id)
         return k
           ? `${k.codigo ? k.codigo + " · " : ""}${k.descricao}`
-          : "(chave removida)"
+          : "(produto removido)"
       }
       function renderEstoque() {
-        const termo = ($("estFiltroChave")?.value || "").trim().toLowerCase()
+        const termo = ($("campoFiltroProduto")?.value || "").trim().toLowerCase()
         let lista = CACHE.movimentacoes.slice()
         if (termo) {
           // Aceita correspondencia exata (escolha no datalist) ou busca parcial por
           // codigo/descricao enquanto o usuario digita.
-          const ids = CACHE.chaves
+          const ids = CACHE.produtos
             .filter(
               (k) =>
                 (k.codigo || "").toLowerCase().includes(termo) ||
                 (k.descricao || "").toLowerCase().includes(termo),
             )
             .map((k) => String(k.id))
-          lista = lista.filter((m) => ids.includes(String(m.chave_id)))
+          lista = lista.filter((m) => ids.includes(String(m.id_produto)))
         }
         if (!lista.length) {
           $("estList").innerHTML =
@@ -8671,7 +8656,7 @@ compreendeu e concorda integralmente com este Termo.</pre
       .map(
         (m) => `<tr>
       <td>${fmtData(m.criado_em)}</td>
-      <td>${esc(nomeChave(m.chave_id))}</td>
+      <td>${esc(obterNomeDoProduto(m.id_produto))}</td>
       <td><span class="badge ${m.tipo === "entrada" ? "b-concluido" : m.tipo === "saida" ? "b-cancelado" : "b-em_andamento"}">${m.tipo}</span></td>
       <td>${m.quantidade}</td>
       <td>${esc(m.motivo || "")}</td>
@@ -8702,7 +8687,7 @@ compreendeu e concorda integralmente com este Termo.</pre
       function estoqueMovListarProdutos() {
         const termo = ($("estMovBusca")?.value || "").trim().toLowerCase()
         // Serviço não tem estoque físico — só produtos entram no seletor.
-        let lista = (CACHE.chaves || []).filter(
+        let lista = (CACHE.produtos || []).filter(
           (k) => (k.tipo_produto || "chave") !== "servico",
         )
         if (termo)
@@ -8728,12 +8713,12 @@ compreendeu e concorda integralmente com este Termo.</pre
           )
           .join("")
       }
-      // movimentação manual de estoque (chamada da tela de chaves)
-      function estoqueMovForm(chaveId) {
-        const k = CACHE.chaves.find((x) => x.id == chaveId)
+      // movimentação manual de estoque
+      function estoqueMovForm(idProduto) {
+        const k = CACHE.produtos.find((x) => x.id == idProduto)
         if (!k) return
         openModal(
-          "Movimentar Estoque: " + esc(rotuloChave(k)),
+          "Movimentar Estoque: " + esc(obterRotuloDoProduto(k)),
           `
     <div class="card" style="margin-bottom:14px;background:var(--surface-2);box-shadow:none">
       <strong>${esc(k.descricao)}</strong><br>
@@ -8750,18 +8735,18 @@ compreendeu e concorda integralmente com este Termo.</pre
   `,
           `
     <button class="btn btn-sec" onclick="closeModal()">Cancelar</button>
-    <button class="btn" id="estSaveBtn" onclick="estoqueMovSalvar(${chaveId})">Confirmar</button>
+    <button class="btn" id="estSaveBtn" onclick="estoqueMovSalvar(${idProduto})">Confirmar</button>
   `,
         )
       }
-      async function estoqueMovSalvar(chaveId) {
+      async function estoqueMovSalvar(idProduto) {
         const tipoSel = $("estTipo").value
         const qtd = parseInt($("estQtd").value)
         if (isNaN(qtd) || qtd < 0) {
           toast("Quantidade inválida", "err")
           return
         }
-        const k = CACHE.chaves.find((x) => x.id == chaveId)
+        const k = CACHE.produtos.find((x) => x.id == idProduto)
         const atual = Number(k.estoque) || 0
         const descricao = ($("estMotivo").value || "").trim()
 
@@ -8799,21 +8784,21 @@ compreendeu e concorda integralmente com este Termo.</pre
           // if(error) throw: sem checar, a movimentacao manual falharia em
           // silencio e o app mostraria "registrada" sem alterar o estoque.
           const { error: movErr } = await sb.from("movimentacoes").insert({
-            chave_id: chaveId,
+            id_produto: idProduto,
             tipo: tipo,
             quantidade: quantidade,
             motivo: motivo,
             funcionario_id: SESSAO.id,
           })
           if (movErr) throw movErr
-          await carregarChaves()
-          const atualizado = CACHE.chaves.find((x) => x.id == chaveId)
+          await carregarProdutos()
+          const atualizado = CACHE.produtos.find((x) => x.id == idProduto)
           if (atualizado) k.estoque = atualizado.estoque
           closeModal()
           toast("Movimentação registrada")
           const ativa = document.querySelector("#nav a.active")?.dataset.page
           if (ativa === "estoque") pageEstoque()
-          else if (ativa === "chaves") renderChaves()
+          else if (ativa === "produtos") renderizarProdutos()
         } catch (e) {
           console.error(e)
           toast("Erro ao registrar movimentação", "err")
@@ -9318,18 +9303,18 @@ compreendeu e concorda integralmente com este Termo.</pre
       // a baixa faltou.
       // ============================================================
 
-      // Diz se um item da OS é FÍSICO (movimenta estoque): tem chave_id e o
+      // Diz se um item da OS é FÍSICO (movimenta estoque): tem id_produto e o
       // produto correspondente NÃO é do tipo 'servico'. Serviço não baixa estoque.
       function itemMovimentaEstoque(item) {
-        if (!item || !item.chave_id) return false
-        const k = (CACHE.chaves || []).find((x) => x.id == item.chave_id)
+        if (!item || !item.id_produto) return false
+        const k = (CACHE.produtos || []).find((x) => Number(x.id) === Number(item.id_produto))
         // Sem o produto no cache, assume físico (conservador: melhor sinalizar).
         if (!k) return true
         return k.tipo_produto !== "servico"
       }
 
       // Devolve a lista de OS concluídas com peça física porém SEM a saída de
-      // estoque correspondente. Cada item: { id, titulo, itens: [ {chave_id,
+      // estoque correspondente. Cada item: { id, titulo, itens: [ {id_produto,
       // descricao, quantidade} ] } — os itens físicos que precisam de saída.
       // Função pura sobre o CACHE (servicos + movimentacoes), fácil de testar.
       function reconciliarEstoque() {
@@ -9351,7 +9336,7 @@ compreendeu e concorda integralmente com este Termo.</pre
             id: s.id,
             titulo: s.titulo || "",
             itens: itensFisicos.map((it) => ({
-              chave_id: it.chave_id,
+              id_produto: it.id_produto,
               descricao: it.descricao || "",
               quantidade: Number(it.quantidade) || 0,
             })),
@@ -9417,7 +9402,7 @@ compreendeu e concorda integralmente com este Termo.</pre
           for (const it of itensFisicos) {
             // if(error) throw: a baixa retroativa não pode falhar em silêncio.
             const { error } = await sb.from("movimentacoes").insert({
-              chave_id: it.chave_id,
+              id_produto: it.id_produto,
               tipo: "saida",
               quantidade: Number(it.quantidade) || 0,
               motivo: `Baixa retroativa OS #${s.id}`,
@@ -9428,7 +9413,7 @@ compreendeu e concorda integralmente com este Termo.</pre
           }
           toast(`Baixa de estoque da OS #${s.id} registrada`)
           await carregarMovimentacoes()
-          await carregarChaves().catch(() => {})
+          await carregarProdutos().catch(() => {})
           renderRelatorios()
         } catch (e) {
           console.error(e)
@@ -9466,7 +9451,7 @@ compreendeu e concorda integralmente com este Termo.</pre
             carregarServicos(),
             carregarTransacoes(),
             carregarFuncionariosCache(),
-            carregarChaves(),
+            carregarProdutos(),
             carregarFormas(),
             // necessário para a reconciliação de ESTOQUE (OS concluída sem saída)
             carregarMovimentacoes(),
@@ -9566,18 +9551,18 @@ compreendeu e concorda integralmente com este Termo.</pre
           .filter((s) => s.status === "concluido")
           .forEach((s) => {
             ;(s.itens || []).forEach((it) => {
-              if (!it.chave_id) return
-              vendas[it.chave_id] = vendas[it.chave_id] || {
+              if (!it.id_produto) return
+              vendas[it.id_produto] = vendas[it.id_produto] || {
                 qtd: 0,
                 receita: 0,
               }
-              vendas[it.chave_id].qtd += it.quantidade
-              vendas[it.chave_id].receita += it.total
+              vendas[it.id_produto].qtd += it.quantidade
+              vendas[it.id_produto].receita += it.total
             })
           })
         const maisVendidas = Object.entries(vendas)
           .map(([cid, v]) => {
-            const k = CACHE.chaves.find((x) => x.id == cid)
+            const k = CACHE.produtos.find((x) => x.id == cid)
             return k ? { codigo: k.codigo, descricao: k.descricao, ...v } : null
           })
           .filter(Boolean)
@@ -9634,7 +9619,7 @@ compreendeu e concorda integralmente com este Termo.</pre
         ${
           maisVendidas.length
             ? `<table><thead><tr><th>Código</th><th>Descrição</th><th>Qtd</th><th>Receita</th></tr></thead>
-          <tbody>${maisVendidas.map((k) => `<tr><td><strong>${esc(rotuloChave(k))}</strong></td><td>${esc(k.descricao)}</td><td>${k.qtd}</td><td>${fmt(k.receita)}</td></tr>`).join("")}</tbody></table>`
+          <tbody>${maisVendidas.map((k) => `<tr><td><strong>${esc(obterRotuloDoProduto(k))}</strong></td><td>${esc(k.descricao)}</td><td>${k.qtd}</td><td>${fmt(k.receita)}</td></tr>`).join("")}</tbody></table>`
             : '<p style="color:var(--muted);text-align:center;padding:16px">Sem vendas no período.</p>'
         }
         </div>
@@ -9669,7 +9654,7 @@ compreendeu e concorda integralmente com este Termo.</pre
       // ============================================================
       const BACKUP_TABELAS = [
         "fabricantes",
-        "chaves",
+        "produtos",
         "clientes",
         "servicos",
         "transacoes",
@@ -9801,7 +9786,7 @@ compreendeu e concorda integralmente com este Termo.</pre
               dados: dump,
             }
             _baixarArquivo(
-              `backup_chaveiro_${carimbo}.json`,
+              `backup_controledochaveiro_${carimbo}.json`,
               JSON.stringify(payload, null, 2),
               "application/json",
             )
@@ -9819,7 +9804,7 @@ compreendeu e concorda integralmente com este Termo.</pre
               }
               sql += `\n`
             }
-            _baixarArquivo(`backup_chaveiro_${carimbo}.sql`, sql, "text/plain")
+            _baixarArquivo(`backup_controledochaveiro_${carimbo}.sql`, sql, "text/plain")
           } else if (formato === "xlsx") {
             if (typeof XLSX === "undefined") {
               toast("Biblioteca de Excel não carregou. Tente JSON.", "err")
@@ -9834,7 +9819,7 @@ compreendeu e concorda integralmente com este Termo.</pre
               }
               const out = XLSX.write(wb, { bookType: "xlsx", type: "array" })
               _baixarArquivo(
-                `backup_chaveiro_${carimbo}.xlsx`,
+                `backup_controledochaveiro_${carimbo}.xlsx`,
                 new Blob([out], {
                   type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 }),
@@ -9892,7 +9877,7 @@ compreendeu e concorda integralmente com este Termo.</pre
           msg.textContent = `✓ Restauração concluída: ${total} registros gravados. Recarregue as telas para ver os dados.`
           CACHE = {
             fabricantes: [],
-            chaves: [],
+            produtos: [],
             clientes: [],
             servicos: [],
             transacoes: [],
@@ -10583,7 +10568,7 @@ compreendeu e concorda integralmente com este Termo.</pre
       <input id="ffComissao" type="number" step="0.01" min="0" value="${f.comissao_percentual || 0}">
     </div>
     <p style="font-size:12px;color:var(--muted);margin:4px 0 0">
-      <strong>Operador:</strong> só vendas (venda rápida, OS, clientes, chaves).<br>
+      <strong>Operador:</strong> só vendas (venda rápida, OS, clientes, produtos).<br>
       <strong>Supervisor:</strong> o de operador + estoque, financeiro e relatórios.<br>
       <strong>Administrador:</strong> tudo, incluindo funcionários, configurações e backup.
     </p>

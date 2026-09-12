@@ -3,12 +3,12 @@
 //
 // Regra do dashboard: estoqueBaixo lista produtos ABAIXO do estoque mínimo,
 // EXCLUINDO serviço (mão de obra não tem estoque físico). Padrão do source:
-//   estoqueBaixo = CACHE.chaves.filter(k =>
+//   estoqueBaixo = CACHE.produtos.filter(k =>
 //     k.estoque_min > 0 && k.estoque <= k.estoque_min && k.tipo_produto !== "servico")
 //
 // Este teste NÃO reimplementa a lógica: ele EXTRAI do próprio index.html o
-// trecho real que constrói `estoqueBaixo` (o `CACHE.chaves.filter(...).sort(...).slice(...)`)
-// e o AVALIA com um CACHE.chaves mock. Assim uma regressão no source é pega:
+// trecho real que constrói `estoqueBaixo` (o `CACHE.produtos.filter(...).sort(...).slice(...)`)
+// e o AVALIA com um CACHE.produtos mock. Assim uma regressão no source é pega:
 //   1) ASI/"return" solto numa linha -> filtro devolve undefined p/ tudo ->
 //      estoqueBaixo fica SEMPRE VAZIO -> a guarda de length >= 1 FALHA.
 //   2) Sumir a condição `tipo_produto !== "servico"` -> um serviço com estoque
@@ -25,14 +25,14 @@ const CAMINHO_INDEX =
   path.join(__dirname, "..", "index.html")
 
 // Extrai do index.html o texto EXATO da atribuição de `estoqueBaixo`:
-// de `const estoqueBaixo = CACHE.chaves` até o `.slice(0, 8)` que a encerra.
+// de `const estoqueBaixo = CACHE.produtos` até o `.slice(0, 8)` que a encerra.
 // Retorna só a expressão (o lado direito), pronta para ser avaliada.
 function extrairExpressaoEstoqueBaixo(html) {
-  const inicio = html.indexOf("const estoqueBaixo = CACHE.chaves")
+  const inicio = html.indexOf("const estoqueBaixo = CACHE.produtos")
   assert.notStrictEqual(
     inicio,
     -1,
-    "não encontrei 'const estoqueBaixo = CACHE.chaves' no index.html — o dashboard mudou?",
+    "não encontrei 'const estoqueBaixo = CACHE.produtos' no index.html — o dashboard mudou?",
   )
   // A partir do início, acha o `.slice(` que fecha a cadeia e vai até o `)` dele.
   const posSlice = html.indexOf(".slice(", inicio)
@@ -50,7 +50,7 @@ function extrairExpressaoEstoqueBaixo(html) {
   return expressao
 }
 
-// Avalia a expressão real do source contra um CACHE.chaves mock, preservando a
+// Avalia a expressão real do source contra um CACHE.produtos mock, preservando a
 // quebra de linha original (importante: um `return`+newline no source só quebra
 // se o texto for avaliado como está, sem reformatação).
 function avaliarEstoqueBaixo(expressao, chavesMock) {

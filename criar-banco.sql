@@ -1,5 +1,5 @@
 -- ============================================================
--- CONTROLE DO CHAVEIRO (MyKey) - BANCO COMPLETO v4
+-- CONTROLE DO CHAVEIRO (MyKey) - BANCO DE DADOS
 -- ============================================================
 -- INSTALACAO NOVA. Cria todo o banco ja na versao final (v4):
 --   - tabela PRODUTOS (chave/fechadura/peca/servico) com tipo_produto
@@ -53,7 +53,6 @@ create table if not exists fabricantes (
   criado_em timestamptz not null default now()
 );
 
--- PRODUTOS (antes "chaves"): chave, fechadura, peca, servico
 create table if not exists produtos (
   id bigint generated always as identity primary key,
   fabricante_id bigint references fabricantes(id),
@@ -68,11 +67,9 @@ create table if not exists produtos (
   estoque integer not null default 0,
   estoque_min integer not null default 0,
   ativo boolean not null default true,
+  locacao text,
   criado_em timestamptz not null default now()
 );
-
--- View de compatibilidade: o nome antigo "chaves" continua funcionando
-create or replace view chaves as select * from produtos;
 
 -- CATEGORIAS de produto (gerenciadas pelo chaveiro)
 create table if not exists categorias (
@@ -99,7 +96,7 @@ create unique index if not exists idx_tipos_produto_chave_unica
 -- Movimentacoes de estoque (fonte unica do estoque)
 create table if not exists movimentacoes_estoque (
   id bigint generated always as identity primary key,
-  chave_id bigint references produtos(id),
+  id_produto bigint references produtos(id),
   tipo text not null,
   quantidade integer not null,
   motivo text,
@@ -204,19 +201,19 @@ create index if not exists idx_equiv_jas    on equivalencias (lower(jas));
 -- O estoque de cada produto e SEMPRE recalculado a partir das
 -- movimentacoes (entradas - saidas). Nunca se edita estoque direto.
 -- ------------------------------------------------------------
-create or replace function calcular_estoque_produto(p_id bigint)
+create or replace function calcular_estoque_produto(id_produto_buscado bigint)
 returns integer language sql stable as $func$
   select coalesce(sum(case when tipo = 'entrada' then quantidade
                            when tipo = 'saida' then -quantidade
                            else 0 end), 0)::integer
-  from movimentacoes_estoque where chave_id = p_id;
+  from movimentacoes_estoque where id_produto = id_produto_buscado;
 $func$;
 
 create or replace function trg_recalcular_estoque()
 returns trigger language plpgsql as $func$
 declare v_id bigint;
 begin
-  v_id := coalesce(new.chave_id, old.chave_id);
+  v_id := coalesce(new.id_produto, old.id_produto);
   update produtos set estoque = calcular_estoque_produto(v_id) where id = v_id;
   return coalesce(new, old);
 end;
@@ -265,7 +262,7 @@ insert into configuracoes (chave, valor) values
   ('garantia_dias', '90'),
   ('codigo_pais', '55'),
   -- versao do banco no formato AAAAMMDDii (ano+mes+dia + indice 00-99 do dia)
-  ('schema_version', '2026082701')
+  ('schema_version', '2026091101')
 on conflict (chave) do nothing;
 
 -- ------------------------------------------------------------
@@ -1315,14 +1312,14 @@ begin
     case when p_status_pagamento = 'pago' then now() else null end
   ) returning id into v_os_id;
 
-  -- 2. baixa de estoque: uma movimentacao de saida por item COM chave_id.
+  -- 2. baixa de estoque: uma movimentacao de saida por item COM id_produto.
   for v_item in select * from jsonb_array_elements(coalesce(p_itens, '[]'::jsonb))
   loop
-    if (v_item->>'chave_id') is not null then
+    if (v_item->>'id_produto') is not null then
       insert into movimentacoes_estoque (
-        chave_id, tipo, quantidade, motivo, servico_id, funcionario_id
+        id_produto, tipo, quantidade, motivo, servico_id, funcionario_id
       ) values (
-        (v_item->>'chave_id')::bigint, 'saida',
+        (v_item->>'id_produto')::bigint, 'saida',
         (v_item->>'quantidade')::integer,
         'Venda Rápida OS #' || v_os_id, v_os_id, p_funcionario_id
       );
@@ -1397,11 +1394,11 @@ begin
     if not v_ja_baixou then
       for v_item in select * from jsonb_array_elements(coalesce(v_itens, '[]'::jsonb))
       loop
-        if (v_item->>'chave_id') is not null then
+        if (v_item->>'id_produto') is not null then
           insert into movimentacoes_estoque (
-            chave_id, tipo, quantidade, motivo, servico_id, funcionario_id
+            id_produto, tipo, quantidade, motivo, servico_id, funcionario_id
           ) values (
-            (v_item->>'chave_id')::bigint, 'saida',
+            (v_item->>'id_produto')::bigint, 'saida',
             (v_item->>'quantidade')::integer,
             'OS #' || p_os_id, p_os_id, p_funcionario_id
           );
@@ -1496,11 +1493,11 @@ begin
   if v_status = 'concluido' and not coalesce(p_ja_concluida, false) then
     for v_item in select * from jsonb_array_elements(coalesce(p_itens, '[]'::jsonb))
     loop
-      if (v_item->>'chave_id') is not null then
+      if (v_item->>'id_produto') is not null then
         insert into movimentacoes_estoque (
-          chave_id, tipo, quantidade, motivo, servico_id, funcionario_id
+          id_produto, tipo, quantidade, motivo, servico_id, funcionario_id
         ) values (
-          (v_item->>'chave_id')::bigint, 'saida',
+          (v_item->>'id_produto')::bigint, 'saida',
           (v_item->>'quantidade')::integer,
           'OS #' || v_os_id, v_os_id, p_funcionario_id
         );
@@ -1512,12 +1509,12 @@ begin
   -- estorna estoque se a OS concluida foi CANCELADA (devolve as pecas).
   if v_status = 'cancelado' and coalesce(p_ja_concluida, false) then
     insert into movimentacoes_estoque (
-      chave_id, tipo, quantidade, motivo, servico_id, funcionario_id
+      id_produto, tipo, quantidade, motivo, servico_id, funcionario_id
     )
-    select m.chave_id, 'entrada', m.quantidade,
+    select m.id_produto, 'entrada', m.quantidade,
            'Estorno OS #' || v_os_id || ' (cancelada)', v_os_id, p_funcionario_id
       from movimentacoes_estoque m
-     where m.servico_id = v_os_id and m.tipo = 'saida' and m.chave_id is not null;
+     where m.servico_id = v_os_id and m.tipo = 'saida' and m.id_produto is not null;
   end if;
 
   -- lancamento financeiro pela diferenca de pagamento. Entrada guarda o valor
@@ -1688,6 +1685,6 @@ grant select on funcionarios_visao to authenticated;
 notify pgrst, 'reload schema';
 
 -- ============================================================
--- PRONTO! Banco criado na versao 9, pronto para uso.
+-- PRONTO! Banco criado.
 -- Login inicial: admin / admin123  (senha gravada como hash bcrypt; troque no app)
 -- ============================================================

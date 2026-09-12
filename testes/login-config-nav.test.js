@@ -207,7 +207,7 @@ test("pdvSair esvazia o carrinho e, para admin, cai no Painel (primeira página 
   const { window, doc } = await preparar()
   await window.eval("pagePDV()")
   await esperarAssentar(window)
-  window.eval("PDV_CART = [{ chave_id: 10, quantidade: 1, preco_unit: 10, estoque: 3 }]")
+  window.eval("PDV_CART = [{ id_produto: 10, quantidade: 1, preco_unit: 10, estoque: 3 }]")
   // confirm dublado devolve true -> sai mesmo com itens
   window.eval("pdvSair()")
   await esperarAssentar(window)
