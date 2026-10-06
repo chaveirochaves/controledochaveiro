@@ -5692,7 +5692,7 @@ compreendeu e concorda integralmente com este Termo.</pre
 
       const elementoCampoDeTextoFiltroLocacao = document.createElement("input")
       elementoCampoDeTextoFiltroLocacao.id = "campoFiltroLocacaoProdutos"
-      elementoCampoDeTextoFiltroLocacao.addEventListener("input", renderizarProdutos)
+      elementoCampoDeTextoFiltroLocacao.setAttribute("oninput", "renderizarProdutos()")
       elementoCampoFiltroLocacao.append(elementoCampoDeTextoFiltroLocacao)
 
       const elementoListaLocacoes = document.createElement("datalist")
@@ -5710,7 +5710,7 @@ compreendeu e concorda integralmente com este Termo.</pre
 
       const elementoCampoDeTextoFiltroCategoria = document.createElement("input")
       elementoCampoDeTextoFiltroCategoria.id = "campoFiltroCategoriaProdutos"
-      elementoCampoDeTextoFiltroCategoria.addEventListener("input", renderizarProdutos)
+      elementoCampoDeTextoFiltroCategoria.setAttribute("oninput", "renderizarProdutos()")
       elementoCampoFiltroCategoria.append(elementoCampoDeTextoFiltroCategoria)
 
       const elementoListaCategorias = document.createElement("datalist")
@@ -5816,7 +5816,7 @@ compreendeu e concorda integralmente com este Termo.</pre
       if (filtroFab) lista = lista.filter((k) => k.fabricante_id == filtroFab)
       if (filtroTipo) lista = lista.filter((k) => k.tipo === filtroTipo)
       if (filtroLocacao !== "") {
-        lista.filter(function filtrarPorLocacao(produto) {
+        lista = lista.filter(function filtrarPorLocacao(produto) {
           let valor = false
           if (produto === null) {
             return valor
@@ -5828,7 +5828,7 @@ compreendeu e concorda integralmente com este Termo.</pre
         })
       }
       if (filtroCategoria !== "") {
-        lista.filter(function filtrarPorCategoria(produto) {
+        lista = lista.filter(function filtrarPorCategoria(produto) {
           let valor = false
           if (produto === null) {
             return valor
