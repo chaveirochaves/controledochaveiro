@@ -1533,7 +1533,32 @@
         margin-right: auto;
       }
 
-      img.ampliar:hover {}
+      img.ampliar {
+        transition: transform 0.2s ease-in-out;
+        will-change: transform;
+        transform-origin: center center;
+      }
+
+      #pdvCartBody img.ampliar:hover,
+      #pdvCartBody .pinfo:has(img.ampliar):hover img.ampliar,
+      #chList img.ampliar:hover,
+      #chList td:has(img.ampliar):hover img.ampliar {
+        position: absolute;
+        transform: scale(6) translate(20px, -20px);
+      }
+
+      *:has(img.ampliada) {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        max-height: 75vh;
+      }
+
+      img.ampliada {
+        max-width: 100%;
+        max-height: 70vh;
+        object-fit: contain;
+      }
 
       /* RESPONSIVO MOBILE (sidebar vira drawer) */
       @media (max-width: 768px) {
@@ -5682,6 +5707,9 @@ compreendeu e concorda integralmente com este Termo.</pre
     // PÁGINA: PRODUTOS
     // ============================================================
     async function renderizarPaginaProdutos() {
+
+      await carregarProdutos()
+
       const elementoCampoFiltroLocacao = document.createElement("div")
       elementoCampoFiltroLocacao.classList.add("filtro","locacao")
 
@@ -5718,17 +5746,21 @@ compreendeu e concorda integralmente com este Termo.</pre
       elementoCampoDeTextoFiltroCategoria.setAttribute("list", "categorias")
       elementoCampoFiltroCategoria.append(elementoListaCategorias)
 
+      let locacoes = []
+      let categorias = []
       for (const produto of CACHE.produtos) {
         const locacao = produto?.locacao ?? null
         const categoria = produto?.categoria ?? null
-        if (typeof locacao === "string" && locacao.length > 0) {
+        if (typeof locacao === "string" && locacao.length > 0 && locacoes.includes(locacao) !== true) {
           const elementoOpcao = document.createElement("option")
           elementoOpcao.value = locacao
+          locacoes.push(locacao)
           elementoListaLocacoes.append(elementoOpcao)
         }
-        if (typeof categoria === "string" && categoria.length > 0) {
+        if (typeof categoria === "string" && categoria.length > 0 && categorias.includes(categoria) !== true) {
           const elementoOpcao = document.createElement("option")
           elementoOpcao.value = categoria
+          categorias.push(categoria)
           elementoListaCategorias.append(elementoOpcao)
         }
       }
@@ -5797,10 +5829,62 @@ compreendeu e concorda integralmente com este Termo.</pre
     function obterDescricaoDoProduto(k) {
       return `${nomeFabricante(k.fabricante_id)}${k.codigo ? " " + k.codigo : ""} — ${k.descricao}`
     }
+
+    // ampliar ao passar mouse ou dar toque duplo em imagens
+    // @problema: aplicar lógica global de amplioção quebro outros elementos, por isso
+    // os estilos só estão aplicados às miniaturas da lista de produtos e da venda rápida
+    function prepararImagensParaAmpliar() {
+
+      const elementosImagemAAmpliar = document.querySelectorAll("img:not(#printDoc img):not(#brandKey img):not(.ampliada):not(.ampliar)")
+      for (const elemento of elementosImagemAAmpliar) {
+        let valor = false
+        if (elemento === null) {
+          continue
+        }
+        elemento.classList.add("ampliar")
+
+        // @problema: modal não funciona direito com imagem no corpo
+        /*
+        elemento.addEventListener("dblclick", function mostrarModalImagem(evento = null) {
+          if (evento === null) {
+            return
+          }
+          const { target: {
+            src: caminho = null,
+            alt: textoAlternativo = null,
+          } = {} } = evento
+          if (caminho === null) {
+            throw "caminho da imagem inválido"
+          }
+          if (textoAlternativo === null) {
+            throw "texto alternativo da imagem inválido"
+          }
+          const htmlInternoTitulo = textoAlternativo
+
+          const htmlInternoCorpo = `<div><img
+            id="imagem_ampliada"
+            class="ampliada"
+            src="${caminho}"
+            alt="${textoAlternativo}"
+          ></div>`
+
+          const htmlInternoRodape = `<button class="btn btn-sec" onclick="closeModal()">Fechar</button>`
+
+          openModal(
+            htmlInternoTitulo,
+            htmlInternoCorpo,
+            htmlInternoRodape,
+          )
+        })
+        */
+      }
+
+    }
+
     function renderizarProdutos() {
       const busca = ($("chBusca")?.value || "").toLowerCase().trim()
       const filtroFab = $("chFiltroFab")?.value || ""
-      const filtroTipo = $("chFiltroTipo")?.value || ""
+      const filtroTipo = $("chFiltroTipoProduto")?.value || ""
       const filtroLocacao = $("campoFiltroLocacaoProdutos")?.value ?? ""
       const filtroCategoria = $("campoFiltroCategoriaProdutos")?.value ?? ""
       const soEstoqueBaixo = $("chFiltroBaixo")?.checked || false
@@ -5814,7 +5898,7 @@ compreendeu e concorda integralmente com este Termo.</pre
             nomeFabricante(k.fabricante_id).toLowerCase().includes(busca)
         )
       if (filtroFab) lista = lista.filter((k) => k.fabricante_id == filtroFab)
-      if (filtroTipo) lista = lista.filter((k) => k.tipo === filtroTipo)
+      if (filtroTipo) lista = lista.filter((k) => k.tipo_produto === filtroTipo)
       if (filtroLocacao !== "") {
         lista = lista.filter(function filtrarPorLocacao(produto) {
           let valor = false
@@ -5884,9 +5968,6 @@ compreendeu e concorda integralmente com este Termo.</pre
         Código
       </th>
       <th>
-        Fabricante
-      </th>
-      <th>
         Descrição
       </th>
       <th>
@@ -5900,9 +5981,6 @@ compreendeu e concorda integralmente com este Termo.</pre
       </th>
       <th>
         Preço
-      </th>
-      <th>
-        Unidade
       </th>
       <th>
         Estoque
@@ -5919,7 +5997,6 @@ compreendeu e concorda integralmente com este Termo.</pre
       return `<tr>
         <td><span title="${esc(rotuloTipoProduto(tp))}">${iconeTipoProduto(tp)} ${esc(rotuloTipoProduto(tp))}</span></td>
         <td><img id="thumb-${k.id}" alt="" style="display:none;width:30px;height:30px;object-fit:cover;border-radius:5px;vertical-align:middle;margin-right:6px"><strong>${esc(obterRotuloDoProduto(k))}</strong></td>
-        <td>${esc(nomeFabricante(k.fabricante_id))}</td>
         <td>${esc(k.descricao)}</td>
         <td>
           ${esc(k?.locacao ?? "não identificada")}
@@ -5927,7 +6004,6 @@ compreendeu e concorda integralmente com este Termo.</pre
         <td><span class="badge b-${k.tipo}">${esc(k.tipo)}</span></td>
         <td>${esc(k.categoria || "")}</td>
         <td>${fmt(k.preco_venda)}</td>
-        <td>${(k.unidade_medida || "UN").toUpperCase()}</td>
         <td>${baixo ? `<span class="badge b-baixo">${k.estoque}/${k.estoque_min}</span>` : k.estoque + (k.estoque_min ? " / min " + k.estoque_min : "")}</td>
         <td class="actions">
           <button class="btn btn-sec btn-sm" onclick='mostrarFormularioParaCriarProduto(${JSON.stringify(k).replace(/'/g, "&#39;")})'>Editar</button>
@@ -5937,6 +6013,9 @@ compreendeu e concorda integralmente com este Termo.</pre
       </tr>`
     })
     .join("")}</tbody></table>`
+
+      prepararImagensParaAmpliar()
+
       applyTableLabels()
       // miniaturas sob demanda: carrega só as fotos dos produtos listados e as pinta
       carregarImagensProdutos(lista.map((k) => k.id)).then(() => {
@@ -5986,6 +6065,9 @@ compreendeu e concorda integralmente com este Termo.</pre
           if (prev) {
             prev.src = _imagemPendenteDoProduto
             prev.style.display = ""
+
+            prepararImagensParaAmpliar()
+
           }
           const rm = $("chImgRemover")
           if (rm) rm.style.display = ""
@@ -5993,6 +6075,9 @@ compreendeu e concorda integralmente com este Termo.</pre
         img.src = e.target.result
       }
       reader.readAsDataURL(file)
+
+      prepararImagensParaAmpliar()
+
     }
     function removerImagemProduto() {
       _imagemPendenteDoProduto = ""
@@ -6000,6 +6085,9 @@ compreendeu e concorda integralmente com este Termo.</pre
       if (prev) {
         prev.src = ""
         prev.style.display = "none"
+
+        prepararImagensParaAmpliar()
+
       }
       const inp = $("chImgInput")
       if (inp) inp.value = ""
@@ -6125,6 +6213,9 @@ compreendeu e concorda integralmente com este Termo.</pre
               if (prev) {
                 prev.src = data.imagem
                 prev.style.display = ""
+
+                prepararImagensParaAmpliar()
+
               }
               const rm = $("chImgRemover")
               if (rm) rm.style.display = ""
@@ -6132,6 +6223,9 @@ compreendeu e concorda integralmente com este Termo.</pre
           })
           .catch(() => {})
       }
+
+      prepararImagensParaAmpliar()
+
       // aplica o estado inicial: se o tipo for servico, esconde custo e estoque
       atualizarTipoProdutoAoCriarProduto()
     }
@@ -7120,6 +7214,7 @@ compreendeu e concorda integralmente com este Termo.</pre
     </div>`
         }).join("")
       }
+      prepararImagensParaAmpliar()
       const subtotal = PDV_CART.reduce(
         (s, it) => s + it.quantidade * it.preco_unit,
         0,
@@ -7490,6 +7585,7 @@ compreendeu e concorda integralmente com este Termo.</pre
             )
             .join("")
         : '<span style="color:var(--muted);font-size:13px">Nenhuma foto anexada.</span>'
+        prepararImagensParaAmpliar()
     }
 
     async function pageServicos() {
@@ -8296,6 +8392,9 @@ compreendeu e concorda integralmente com este Termo.</pre
               .join("")
         })
         .catch(() => {})
+
+      prepararImagensParaAmpliar()
+
     }
 
     async function osDarBaixa(id) {
@@ -10846,18 +10945,7 @@ compreendeu e concorda integralmente com este Termo.</pre
         localStorage.removeItem("chaveiro_sessao")
       }
       $("loginUser").focus()
-
-      // ampliar ao passar mouse ou dar toque duplo em imagens
-      const elementosImagemAAmpliar = document.querySelectorAll("img:not(#printDoc img):not(#brandKey img)")
-      for (const elemento of elementosImagemAAmpliar) {
-        let valor = false
-        if (elemento === null) {
-          continue
-        }
-        elemento.classList.add("ampliar")
-      }
     }
-
       init()
     </script>
   </body>
