@@ -5718,17 +5718,21 @@ compreendeu e concorda integralmente com este Termo.</pre
       elementoCampoDeTextoFiltroCategoria.setAttribute("list", "categorias")
       elementoCampoFiltroCategoria.append(elementoListaCategorias)
 
+      let locacoes = []
+      let categorias = []
       for (const produto of CACHE.produtos) {
         const locacao = produto?.locacao ?? null
         const categoria = produto?.categoria ?? null
-        if (typeof locacao === "string" && locacao.length > 0) {
+        if (typeof locacao === "string" && locacao.length > 0 && locacoes.includes(locaocao) !== true) {
           const elementoOpcao = document.createElement("option")
           elementoOpcao.value = locacao
+          locacoes.append(locacao)
           elementoListaLocacoes.append(elementoOpcao)
         }
-        if (typeof categoria === "string" && categoria.length > 0) {
+        if (typeof categoria === "string" && categoria.length > 0 && categorias.includes(categoria) !== true) {
           const elementoOpcao = document.createElement("option")
           elementoOpcao.value = categoria
+          categorias.append(categoria)
           elementoListaCategorias.append(elementoOpcao)
         }
       }
