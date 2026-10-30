@@ -1150,6 +1150,7 @@ create table if not exists produtos (
   estoque_min integer not null default 0,
   ativo boolean not null default true,
   locacao text,
+  observacoes text;
   criado_em timestamptz not null default now()
 );
 
@@ -2598,6 +2599,9 @@ and exists (
   where item ? 'chave_id'
 );
 
+-- adiciona coluna de observações à tabela produtos
+alter table produtos add column if not exists observacoes text;
+
 -- ------------------------------------------------------------
 
 -- ------------------------------------------------------------
@@ -2616,9 +2620,15 @@ and exists (
 --              ou fiado - coluna servicos.data_vencimento e RPCs gravando).
 -- 2026091101: adicionado campo locação à tabela produtos
 -- As proximas migracoes usam a data do dia; nao voltar para numero sequencial.
+-- 2026103000: adicionado campo observacoes à tabela produtos
 -- ------------------------------------------------------------
-insert into configuracoes (chave, valor) values ('schema_version', '2026091101')
+do $$
+declare versao_schema constant text := '2026103000';
+begin
+insert into configuracoes (chave, valor) values ('schema_version', '2026103000')
 on conflict (chave) do update set valor = excluded.valor;
+end;
+$$;
 
 notify pgrst, 'reload schema';
 

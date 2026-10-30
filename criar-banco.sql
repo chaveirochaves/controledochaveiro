@@ -68,6 +68,7 @@ create table if not exists produtos (
   estoque_min integer not null default 0,
   ativo boolean not null default true,
   locacao text,
+  observacoes text;
   criado_em timestamptz not null default now()
 );
 

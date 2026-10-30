@@ -6201,6 +6201,12 @@ compreendeu e concorda integralmente com este Termo.</pre
     <img id="chImgPreview" alt="" style="display:none;max-width:120px;max-height:120px;margin-top:8px;border-radius:8px;border:1px solid var(--border)">
     <button type="button" class="btn btn-sec btn-sm" id="chImgRemover" style="display:none;margin-top:6px" onclick="removerImagemProduto()">Remover foto</button>
   </div>
+  <div class="field">
+    <label>Observações</label>
+    <textarea id="criar_produto_campo_observacoes" rows="3" placeholder="exemplo: ${"\"produto é frágil e tem garantia de sete dias\""}">
+      ${esc(k?.observacoes || "")}
+    </textarea>
+  </div>
   ${!edit ? '<div class="field" id="chCampoEstoqueInicial"><label>Estoque inicial</label><input id="chEstoque" type="number" value="0"></div>' : ""}
 `,
         `
@@ -6265,6 +6271,7 @@ compreendeu e concorda integralmente com este Termo.</pre
         estoque_min: parseInt($("chEstMin").value || 0),
         ativo: true,
         locacao: $("criar_produto_campo_locacao").value.trim(),
+        observacoes: $("criar_produto_campo_observacoes").value.trim(),
       }
       // Serviço não tem custo de estoque nem quantidade: grava 0 nesses campos.
       const ehServico = dados.tipo_produto === "servico"
