@@ -918,6 +918,16 @@
         margin-left: 0.2rem;
       }
 
+      #chList th.locacao, #chList td.locacao {
+        width: 0;
+        max-width: 5em;
+        padding: 0;
+      }
+
+      #chList td.locacao span {
+        display: block;
+      }
+
       .pdv-qty {
         display: flex;
         align-items: center;
@@ -5970,7 +5980,7 @@ compreendeu e concorda integralmente com este Termo.</pre
       <th>
         Descrição
       </th>
-      <th>
+      <th class="locacao">
         Locação
       </th>
       <th>
@@ -5998,9 +6008,9 @@ compreendeu e concorda integralmente com este Termo.</pre
         <td><span title="${esc(rotuloTipoProduto(tp))}">${iconeTipoProduto(tp)} ${esc(rotuloTipoProduto(tp))}</span></td>
         <td><img id="thumb-${k.id}" alt="" style="display:none;width:30px;height:30px;object-fit:cover;border-radius:5px;vertical-align:middle;margin-right:6px"><strong>${esc(obterRotuloDoProduto(k))}</strong></td>
         <td>${esc(k.descricao)}</td>
-        <td>
+        <td class="locacao"><span>
           ${esc(k?.locacao ?? "não identificada")}
-        </td>
+        </span></td>
         <td><span class="badge b-${k.tipo}">${esc(k.tipo)}</span></td>
         <td>${esc(k.categoria || "")}</td>
         <td>${fmt(k.preco_venda)}</td>
